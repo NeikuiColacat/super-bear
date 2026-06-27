@@ -40,3 +40,38 @@ class EntityKind(StrEnum):
     LOCATION = "location"
     INDUSTRY = "industry"
     OTHER = "other"
+
+
+DOCUMENT_SOURCE_TYPES = frozenset(
+    {
+        SourceType.SEC_FILING,
+        SourceType.SEC_EXHIBIT,
+        SourceType.COMPANY_IR,
+        SourceType.COMPANY_NEWSROOM,
+        SourceType.COMPANY_EARNINGS_RELEASE,
+        SourceType.PRESS_RELEASE_WIRE,
+    }
+)
+
+SOURCE_TYPE_ALLOWED_TIERS = {
+    SourceType.SEC_FILING: frozenset({SourceTier.REGULATORY_PRIMARY}),
+    SourceType.SEC_EXHIBIT: frozenset({SourceTier.REGULATORY_PRIMARY}),
+    SourceType.COMPANY_IR: frozenset({SourceTier.COMPANY_PRIMARY}),
+    SourceType.COMPANY_NEWSROOM: frozenset({SourceTier.COMPANY_PRIMARY}),
+    SourceType.COMPANY_EARNINGS_RELEASE: frozenset({SourceTier.COMPANY_PRIMARY}),
+    SourceType.PRESS_RELEASE_WIRE: frozenset({SourceTier.COMPANY_DISTRIBUTED}),
+    SourceType.MARKET_DATA: frozenset({SourceTier.MARKET_CONTEXT}),
+    SourceType.SEARCH: frozenset({SourceTier.SEARCH_LEAD}),
+    SourceType.SOCIAL_SENTIMENT: frozenset({SourceTier.ATTENTION_SIGNAL}),
+}
+
+
+def is_document_source_type(source_type: SourceType) -> bool:
+    return source_type in DOCUMENT_SOURCE_TYPES
+
+
+def is_valid_source_type_tier_pair(
+    source_type: SourceType,
+    source_tier: SourceTier,
+) -> bool:
+    return source_tier in SOURCE_TYPE_ALLOWED_TIERS[source_type]

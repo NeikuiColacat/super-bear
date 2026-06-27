@@ -19,9 +19,19 @@ def test_sources_yaml_registers_first_batch_sources() -> None:
 
     sec = next(source for source in config["sources"] if source["source_id"] == "sec_edgar")
     assert sec["output_kind"] == "document"
-    assert sec["source_type"] == "sec_filing"
+    assert sec["default_source_type"] == "sec_filing"
+    assert sec["allowed_source_types"] == ["sec_filing", "sec_exhibit"]
     assert sec["source_tier"] == "regulatory_primary"
     assert sec["user_agent_env"] == "SEC_USER_AGENT"
+
+    company_ir = next(
+        source for source in config["sources"] if source["source_id"] == "company_ir"
+    )
+    assert company_ir["allowed_source_types"] == [
+        "company_ir",
+        "company_newsroom",
+        "company_earnings_release",
+    ]
 
     tavily = next(source for source in config["sources"] if source["source_id"] == "tavily")
     assert tavily["output_kind"] == "search_lead"

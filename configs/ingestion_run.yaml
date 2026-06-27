@@ -1,0 +1,13 @@
+version: 1
+source_registry_path: configs/sources.yaml
+normalized_dir: data/normalized
+runs_dir: data/runs
+default_limit: null
+enabled_source_ids:
+  - sec_edgar
+  - company_ir
+  - yfinance
+  - tavily
+  - brave_search
+  - stock_sentiment
+skip_unimplemented_adapters: true

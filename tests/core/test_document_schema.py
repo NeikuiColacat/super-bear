@@ -10,6 +10,7 @@ from packages.core import (
     EntityKind,
     SourceTier,
     SourceType,
+    make_issuer_family_id,
     make_content_hash,
     make_doc_id,
 )
@@ -30,7 +31,7 @@ def test_sec_filing_document_records_regulatory_provenance() -> None:
         source_id="sec_edgar",
         source_type=SourceType.SEC_FILING,
         source_tier=SourceTier.REGULATORY_PRIMARY,
-        source_family_id="issuer:AAPL",
+        source_family_id=make_issuer_family_id("0000320193"),
         title="Apple Inc. 10-Q filed 2026-05-01",
         url="https://www.sec.gov/Archives/edgar/data/320193/000032019326000013/aapl-20260328.htm",
         published_at=datetime(2026, 5, 1, 22, 3, tzinfo=timezone.utc),
@@ -68,7 +69,7 @@ def test_sec_exhibit_keeps_same_issuer_family_as_parent_filing() -> None:
         source_id="sec_edgar",
         source_type=SourceType.SEC_EXHIBIT,
         source_tier=SourceTier.REGULATORY_PRIMARY,
-        source_family_id="issuer:MSFT",
+        source_family_id=make_issuer_family_id("0000789019"),
         title="Microsoft earnings release exhibit EX-99.1",
         url="https://www.sec.gov/Archives/edgar/data/789019/000095017026012345/msft-ex991.htm",
         published_at=datetime(2026, 4, 24, 20, 10, tzinfo=timezone.utc),
@@ -87,7 +88,7 @@ def test_sec_exhibit_keeps_same_issuer_family_as_parent_filing() -> None:
         },
     )
 
-    assert doc.source_family_id == "issuer:MSFT"
+    assert doc.source_family_id == "issuer:0000789019"
     assert doc.source_type is SourceType.SEC_EXHIBIT
     assert doc.metadata["exhibit_type"] == "EX-99.1"
 
@@ -98,7 +99,7 @@ def test_press_release_wire_is_a_document_but_not_independent_confirmation() -> 
         source_id="prnewswire",
         source_type=SourceType.PRESS_RELEASE_WIRE,
         source_tier=SourceTier.COMPANY_DISTRIBUTED,
-        source_family_id="issuer:AAPL",
+        source_family_id=make_issuer_family_id("0000320193"),
         title="Apple announces changes to iOS in Brazil",
         url="https://www.prnewswire.com/news-releases/apple-announces-changes-to-ios-in-brazil.html",
         published_at=datetime(2026, 6, 18, 14, 59, tzinfo=timezone.utc),
@@ -118,7 +119,7 @@ def test_press_release_wire_is_a_document_but_not_independent_confirmation() -> 
 
     assert doc.source_type is SourceType.PRESS_RELEASE_WIRE
     assert doc.source_tier is SourceTier.COMPANY_DISTRIBUTED
-    assert doc.source_family_id == "issuer:AAPL"
+    assert doc.source_family_id == "issuer:0000320193"
 
 
 def test_document_requires_timezone_aware_timestamps() -> None:
@@ -128,7 +129,7 @@ def test_document_requires_timezone_aware_timestamps() -> None:
             source_id="sec_edgar",
             source_type=SourceType.SEC_FILING,
             source_tier=SourceTier.REGULATORY_PRIMARY,
-            source_family_id="issuer:AAPL",
+            source_family_id=make_issuer_family_id("0000320193"),
             title="Naive datetime should fail",
             url="https://www.sec.gov/example.htm",
             published_at=datetime(2026, 5, 1, 22, 3),
@@ -165,3 +166,39 @@ def test_id_and_hash_helpers_are_stable() -> None:
 
     expected_hash = hashlib.sha256(b"Apple").hexdigest()
     assert make_content_hash("Apple") == f"sha256:{expected_hash}"
+
+
+def test_document_rejects_invalid_source_type_tier_pair() -> None:
+    with pytest.raises(ValidationError, match="not valid for source_type"):
+        Document(
+            doc_id=make_doc_id("sec", "0000320193", "bad-tier"),
+            source_id="sec_edgar",
+            source_type=SourceType.SEC_FILING,
+            source_tier=SourceTier.COMPANY_DISTRIBUTED,
+            source_family_id=make_issuer_family_id("0000320193"),
+            title="SEC filing with an impossible tier",
+            url="https://www.sec.gov/example.htm",
+            published_at=datetime(2026, 5, 1, 22, 3, tzinfo=timezone.utc),
+            retrieved_at=_retrieved_at(),
+            raw_object_uri="data/raw/sec_edgar/example.htm",
+            content_hash=make_content_hash("bad tier"),
+            parser_version="sec_edgar_v0.1",
+        )
+
+
+def test_document_requires_canonical_source_family_id() -> None:
+    with pytest.raises(ValidationError, match="source_family_id"):
+        Document(
+            doc_id=make_doc_id("sec", "0000320193", "bad-family"),
+            source_id="sec_edgar",
+            source_type=SourceType.SEC_FILING,
+            source_tier=SourceTier.REGULATORY_PRIMARY,
+            source_family_id="issuer:AAPL",
+            title="SEC filing with non-canonical family id",
+            url="https://www.sec.gov/example.htm",
+            published_at=datetime(2026, 5, 1, 22, 3, tzinfo=timezone.utc),
+            retrieved_at=_retrieved_at(),
+            raw_object_uri="data/raw/sec_edgar/example.htm",
+            content_hash=make_content_hash("bad family"),
+            parser_version="sec_edgar_v0.1",
+        )

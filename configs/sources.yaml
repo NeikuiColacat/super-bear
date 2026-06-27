@@ -4,7 +4,10 @@ sources:
     enabled: true
     adapter: sec_edgar
     output_kind: document
-    source_type: sec_filing
+    default_source_type: sec_filing
+    allowed_source_types:
+      - sec_filing
+      - sec_exhibit
     source_tier: regulatory_primary
     source_family_strategy: issuer
     base_url: https://data.sec.gov
@@ -17,7 +20,11 @@ sources:
     enabled: true
     adapter: company_ir
     output_kind: document
-    source_type: company_ir
+    default_source_type: company_ir
+    allowed_source_types:
+      - company_ir
+      - company_newsroom
+      - company_earnings_release
     source_tier: company_primary
     source_family_strategy: issuer
     requires_api_key: false
@@ -28,7 +35,7 @@ sources:
     enabled: true
     adapter: yfinance_adapter
     output_kind: market_context
-    source_type: market_data
+    default_source_type: market_data
     source_tier: market_context
     source_family_strategy: provider
     requires_api_key: false
@@ -39,7 +46,7 @@ sources:
     enabled: true
     adapter: tavily_search
     output_kind: search_lead
-    source_type: search
+    default_source_type: search
     source_tier: search_lead
     source_family_strategy: provider
     base_url: https://api.tavily.com
@@ -52,7 +59,7 @@ sources:
     enabled: true
     adapter: brave_search
     output_kind: search_lead
-    source_type: search
+    default_source_type: search
     source_tier: search_lead
     source_family_strategy: provider
     base_url: https://api.search.brave.com
@@ -65,7 +72,7 @@ sources:
     enabled: true
     adapter: stock_sentiment
     output_kind: attention_signal
-    source_type: social_sentiment
+    default_source_type: social_sentiment
     source_tier: attention_signal
     source_family_strategy: provider
     base_url: https://api.adanos.org

@@ -12,23 +12,13 @@ from pydantic import (
     model_validator,
 )
 
-from .source_types import EntityKind, SourceTier, SourceType
-
-
-_DOCUMENT_SOURCE_TYPES = {
-    SourceType.SEC_FILING,
-    SourceType.SEC_EXHIBIT,
-    SourceType.COMPANY_IR,
-    SourceType.COMPANY_NEWSROOM,
-    SourceType.COMPANY_EARNINGS_RELEASE,
-    SourceType.PRESS_RELEASE_WIRE,
-}
-
-_DOCUMENT_SOURCE_TIERS = {
-    SourceTier.REGULATORY_PRIMARY,
-    SourceTier.COMPANY_PRIMARY,
-    SourceTier.COMPANY_DISTRIBUTED,
-}
+from .source_types import (
+    EntityKind,
+    SourceTier,
+    SourceType,
+    is_document_source_type,
+    is_valid_source_type_tier_pair,
+)
 
 
 class DocumentEntity(BaseModel):
@@ -47,7 +37,14 @@ class Document(BaseModel):
     source_id: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     source_type: SourceType
     source_tier: SourceTier
-    source_family_id: str = Field(min_length=1)
+    source_family_id: str = Field(
+        pattern=(
+            r"^(issuer:[0-9]{10}"
+            r"|issuer_ticker:[A-Z][A-Z0-9.-]*"
+            r"|provider:[a-z][a-z0-9_]*"
+            r"|publisher:[a-z][a-z0-9_-]*)$"
+        )
+    )
     title: str = Field(min_length=1)
     url: HttpUrl
     published_at: datetime
@@ -71,8 +68,10 @@ class Document(BaseModel):
 
     @model_validator(mode="after")
     def _require_document_source(self) -> Document:
-        if self.source_type not in _DOCUMENT_SOURCE_TYPES:
+        if not is_document_source_type(self.source_type):
             raise ValueError(f"{self.source_type} is not a document source_type")
-        if self.source_tier not in _DOCUMENT_SOURCE_TIERS:
-            raise ValueError(f"{self.source_tier} is not a document source_tier")
+        if not is_valid_source_type_tier_pair(self.source_type, self.source_tier):
+            raise ValueError(
+                f"{self.source_tier} is not valid for source_type {self.source_type}"
+            )
         return self

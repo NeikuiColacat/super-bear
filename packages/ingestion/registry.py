@@ -6,17 +6,13 @@ from typing import Any, Iterable
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 import yaml
 
-from packages.core import OutputKind, SourceTier, SourceType
-
-
-_DOCUMENT_SOURCE_TYPES = {
-    SourceType.SEC_FILING,
-    SourceType.SEC_EXHIBIT,
-    SourceType.COMPANY_IR,
-    SourceType.COMPANY_NEWSROOM,
-    SourceType.COMPANY_EARNINGS_RELEASE,
-    SourceType.PRESS_RELEASE_WIRE,
-}
+from packages.core import (
+    OutputKind,
+    SourceTier,
+    SourceType,
+    is_document_source_type,
+    is_valid_source_type_tier_pair,
+)
 
 
 class SourceConfig(BaseModel):
@@ -26,7 +22,8 @@ class SourceConfig(BaseModel):
     enabled: bool = True
     adapter: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     output_kind: OutputKind
-    source_type: SourceType
+    default_source_type: SourceType
+    allowed_source_types: tuple[SourceType, ...] = ()
     source_tier: SourceTier
     source_family_strategy: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     base_url: HttpUrl | None = None
@@ -36,32 +33,52 @@ class SourceConfig(BaseModel):
     rate_limit_per_second: float = Field(gt=0)
     license_notes: str = Field(min_length=1)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_source_type_fields(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        normalized = dict(data)
+        if "source_type" in normalized and "default_source_type" not in normalized:
+            normalized["default_source_type"] = normalized.pop("source_type")
+        if "allowed_source_types" not in normalized and "default_source_type" in normalized:
+            normalized["allowed_source_types"] = [normalized["default_source_type"]]
+        return normalized
+
+    @property
+    def source_type(self) -> SourceType:
+        return self.default_source_type
+
     @model_validator(mode="after")
     def _validate_output_mapping(self) -> SourceConfig:
+        if self.default_source_type not in self.allowed_source_types:
+            raise ValueError("default_source_type must be listed in allowed_source_types")
+
         if self.output_kind is OutputKind.DOCUMENT:
-            if self.source_type not in _DOCUMENT_SOURCE_TYPES:
+            if not all(
+                is_document_source_type(item) for item in self.allowed_source_types
+            ):
                 raise ValueError("document sources must use a document source_type")
-            if self.source_tier not in {
-                SourceTier.REGULATORY_PRIMARY,
-                SourceTier.COMPANY_PRIMARY,
-                SourceTier.COMPANY_DISTRIBUTED,
-            }:
-                raise ValueError("document sources must use a document source_tier")
+            for source_type in self.allowed_source_types:
+                if not is_valid_source_type_tier_pair(source_type, self.source_tier):
+                    raise ValueError(
+                        f"{self.source_tier} is not valid for source_type {source_type}"
+                    )
 
         if self.output_kind is OutputKind.MARKET_CONTEXT:
-            if self.source_type is not SourceType.MARKET_DATA:
+            if self.default_source_type is not SourceType.MARKET_DATA:
                 raise ValueError("market_context sources must use market_data")
             if self.source_tier is not SourceTier.MARKET_CONTEXT:
                 raise ValueError("market_context sources must use market_context tier")
 
         if self.output_kind is OutputKind.SEARCH_LEAD:
-            if self.source_type is not SourceType.SEARCH:
+            if self.default_source_type is not SourceType.SEARCH:
                 raise ValueError("search_lead sources must use search")
             if self.source_tier is not SourceTier.SEARCH_LEAD:
                 raise ValueError("search_lead sources must use search_lead tier")
 
         if self.output_kind is OutputKind.ATTENTION_SIGNAL:
-            if self.source_type is not SourceType.SOCIAL_SENTIMENT:
+            if self.default_source_type is not SourceType.SOCIAL_SENTIMENT:
                 raise ValueError("attention_signal sources must use social_sentiment")
             if self.source_tier is not SourceTier.ATTENTION_SIGNAL:
                 raise ValueError("attention_signal sources must use attention_signal tier")
