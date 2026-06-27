@@ -1,0 +1,17 @@
+[project]
+name = "super-bear"
+version = "0.1.0"
+description = "Attention-budgeted event intelligence prototypes for Nasdaq-100 investors."
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.8,<3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

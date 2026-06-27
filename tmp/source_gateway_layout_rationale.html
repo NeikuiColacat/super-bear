@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Why This Source Gateway Layout</title>
+  <style>
+    :root {
+      --bg: #f6f7f2;
+      --paper: #ffffff;
+      --ink: #20251f;
+      --muted: #657064;
+      --line: #d9dfd2;
+      --green: #22745c;
+      --blue: #2e62a8;
+      --amber: #a96f1f;
+      --rose: #94435f;
+      --lime: #d8ff64;
+      --soft: #edf1e8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.5;
+    }
+
+    main {
+      width: min(1180px, calc(100vw - 40px));
+      margin: 0 auto;
+      padding: 36px 0 52px;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 940px;
+      margin: 0;
+      font-size: clamp(34px, 5.8vw, 70px);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 820px;
+      margin: 20px 0 28px;
+      color: #424b40;
+      font-size: 18px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin: 28px 0 32px;
+    }
+
+    .summary-item,
+    .section,
+    .reason,
+    .tree-panel,
+    .rule {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      box-shadow: 0 12px 26px rgba(30, 40, 30, .055);
+    }
+
+    .summary-item {
+      min-height: 118px;
+      padding: 16px;
+    }
+
+    .summary-item strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 18px;
+    }
+
+    .summary-item span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: .95fr 1.05fr;
+      gap: 18px;
+      align-items: start;
+      margin: 28px 0;
+    }
+
+    .section {
+      padding: 22px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 26px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 19px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+      color: #424c40;
+    }
+
+    p + p {
+      margin-top: 10px;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 0;
+      padding: 18px;
+      border-radius: 8px;
+      background: #172019;
+      color: #eaf6e8;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    .reasons {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin: 28px 0;
+    }
+
+    .reason {
+      min-height: 190px;
+      padding: 18px;
+    }
+
+    .badge {
+      display: inline-flex;
+      width: fit-content;
+      min-height: 26px;
+      align-items: center;
+      margin-bottom: 12px;
+      border-radius: 999px;
+      padding: 4px 9px;
+      color: white;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .green { background: var(--green); }
+    .blue { background: var(--blue); }
+    .amber { background: var(--amber); }
+    .rose { background: var(--rose); }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .flow-step {
+      min-height: 126px;
+      padding: 14px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcf8;
+    }
+
+    .flow-step strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 15px;
+    }
+
+    .flow-step span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .rules {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .rule {
+      padding: 18px;
+    }
+
+    .do {
+      border-left: 5px solid var(--green);
+    }
+
+    .avoid {
+      border-left: 5px solid var(--rose);
+    }
+
+    ul {
+      margin: 10px 0 0;
+      padding-left: 20px;
+      color: #3f493e;
+    }
+
+    li + li {
+      margin-top: 7px;
+    }
+
+    .callout {
+      margin-top: 20px;
+      padding: 16px 18px;
+      border: 1px solid #cada4a;
+      border-radius: 8px;
+      background: var(--lime);
+      color: #28300d;
+      font-weight: 750;
+    }
+
+    @media (max-width: 940px) {
+      .summary,
+      .layout,
+      .reasons,
+      .rules {
+        grid-template-columns: 1fr;
+      }
+
+      .flow {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 620px) {
+      main {
+        width: min(100% - 24px, 1180px);
+        padding-top: 24px;
+      }
+
+      .flow {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">Source Gateway Layout Rationale</p>
+    <h1>为什么第一步要这样设文件夹？</h1>
+    <p class="lead">
+      因为第一阶段的目标不是“爬很多网页”，而是建立一条稳定的数据入口：
+      数据源可登记、adapter 可替换、输出可追溯、失败可复盘，后续数据挖掘、知识图谱和 Agent 都能复用。
+    </p>
+
+    <section class="summary" aria-label="layout summary">
+      <div class="summary-item">
+        <strong>configs</strong>
+        <span>把源和 watchlist 写成配置，避免硬编码。</span>
+      </div>
+      <div class="summary-item">
+        <strong>packages/core</strong>
+        <span>定义系统自己的标准数据语言。</span>
+      </div>
+      <div class="summary-item">
+        <strong>packages/ingestion</strong>
+        <span>把外部源翻译成统一 schema。</span>
+      </div>
+      <div class="summary-item">
+        <strong>data / tests</strong>
+        <span>落样本、留 manifest，并用测试守住接口。</span>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="tree-panel">
+        <pre><code>configs/
+  sources.yaml
+  watchlist.yaml
+
+packages/
+  core/
+    schemas.py
+    source_types.py
+    ids.py
+
+  ingestion/
+    registry.py
+    gateway.py
+    normalize.py
+    run_manifest.py
+    jsonl_writer.py
+    adapters/
+      base.py
+      sec_edgar.py
+      company_ir.py
+      yfinance_adapter.py
+      tavily_search.py
+      brave_search.py
+      stock_sentiment.py
+
+scripts/
+  fetch_sources.py
+
+data/
+  raw/
+  normalized/
+  runs/
+
+tests/
+  core/
+  ingestion/</code></pre>
+      </div>
+
+      <div class="section">
+        <h2>这不是过度设计</h2>
+        <p>
+          这棵树只分了最必要的边界：配置、核心 schema、接入逻辑、命令入口、输出数据和测试。
+          没有数据库、没有服务、没有队列、没有 Agent 框架。
+        </p>
+        <p>
+          它的价值是让第一批 6 个源都按同一种规则进来：
+          SEC 和 IR 变成 <code>Document</code>，YFinance 变成 <code>MarketContext</code>，
+          Tavily/Brave 变成 <code>SearchLead</code>，Stock Sentiment 变成 <code>AttentionSignal</code>。
+        </p>
+        <div class="callout">
+          一句话：先把入口做干净，后面再加数据挖掘、事件聚类、证据链和 Agent。
+        </div>
+      </div>
+    </section>
+
+    <section class="reasons" aria-label="reasons">
+      <article class="reason">
+        <span class="badge green">Reason 1</span>
+        <h3>Source Registry 独立出来</h3>
+        <p>
+          数据源不是普通 URL 列表。它还要记录 source tier、source family、allowed use、rate limit、
+          API key 环境变量、版权和证据权限。
+        </p>
+      </article>
+      <article class="reason">
+        <span class="badge blue">Reason 2</span>
+        <h3>core 和 ingestion 分开</h3>
+        <p>
+          <code>core</code> 是我们的领域语言，应该稳定；<code>ingestion</code> 是外部适配层，
+          可以频繁改。这样换 Tavily、Brave 或行情源时，不会影响后面的证据链。
+        </p>
+      </article>
+      <article class="reason">
+        <span class="badge amber">Reason 3</span>
+        <h3>adapter skeleton 先统一接口</h3>
+        <p>
+          先让 6 个 adapter 都实现同一套输入输出，哪怕内部只是 skeleton。
+          这样主流程只关心 <code>fetch</code>、<code>normalize</code>、<code>write</code>。
+        </p>
+      </article>
+      <article class="reason">
+        <span class="badge rose">Reason 4</span>
+        <h3>JSONL 先替代数据库</h3>
+        <p>
+          JSONL 对 MVP 最友好：一行一条记录，可读、可 diff、可重跑、可导入 Postgres。
+          第一阶段不需要为了存储提前引入复杂基础设施。
+        </p>
+      </article>
+      <article class="reason">
+        <span class="badge green">Reason 5</span>
+        <h3>manifest 是审计线索</h3>
+        <p>
+          每次运行都要知道哪些源成功、哪些失败、抓了多少条、错误是什么、raw 文件在哪里。
+          这比“命令跑完没报错”可靠得多。
+        </p>
+      </article>
+      <article class="reason">
+        <span class="badge blue">Reason 6</span>
+        <h3>tests 守住 schema 合约</h3>
+        <p>
+          早期测试不追求覆盖所有网络行为，先确认 registry 能读、schema 能校验、
+          adapter 输出类型一致、manifest 记录完整。
+        </p>
+      </article>
+    </section>
+
+    <section class="section">
+      <h2>第一步运行时应该发生什么</h2>
+      <div class="flow">
+        <div class="flow-step">
+          <strong>1. 读配置</strong>
+          <span><code>sources.yaml</code> 和 <code>watchlist.yaml</code> 决定跑哪些源和 ticker。</span>
+        </div>
+        <div class="flow-step">
+          <strong>2. 调 adapter</strong>
+          <span>SEC、IR、YFinance、Tavily、Brave、Sentiment 分别抓取小样本。</span>
+        </div>
+        <div class="flow-step">
+          <strong>3. 保存 raw</strong>
+          <span>原始响应放进 <code>data/raw</code>，保留 URL、时间、hash 和错误。</span>
+        </div>
+        <div class="flow-step">
+          <strong>4. 标准化</strong>
+          <span>输出 Document、MarketContext、SearchLead、AttentionSignal。</span>
+        </div>
+        <div class="flow-step">
+          <strong>5. 写 manifest</strong>
+          <span>在 <code>data/runs</code> 记录本次运行状态，方便复盘和重跑。</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>该做什么，不该做什么</h2>
+      <div class="rules">
+        <div class="rule do">
+          <h3>第一阶段要做</h3>
+          <ul>
+            <li>固定 3-5 个 ticker 跑通样本。</li>
+            <li>每条数据都带 <code>source_id</code>、<code>retrieved_at</code>、<code>content_hash</code>。</li>
+            <li>搜索 API 只输出 SearchLead，不直接当证据。</li>
+            <li>失败写进 manifest，不让一个源拖死整次运行。</li>
+          </ul>
+        </div>
+        <div class="rule avoid">
+          <h3>第一阶段先不做</h3>
+          <ul>
+            <li>不做全网爬虫。</li>
+            <li>不接数据库、队列、Dagster、LangGraph。</li>
+            <li>不让 Agent 自由上网搜索。</li>
+            <li>不把社交舆情当事实证据。</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout">
+        最小成功标准：一个命令能产出 raw 文件、normalized JSONL 和 manifest，并且 6 个源的输出类型边界清楚。
+      </div>
+    </section>
+  </main>
+</body>
+</html>
