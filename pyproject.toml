@@ -5,6 +5,7 @@ description = "Attention-budgeted event intelligence prototypes for Nasdaq-100 i
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.8,<3",
+    "pyyaml>=6.0,<7",
 ]
 
 [dependency-groups]

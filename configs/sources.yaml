@@ -1,0 +1,75 @@
+version: 1
+sources:
+  - source_id: sec_edgar
+    enabled: true
+    adapter: sec_edgar
+    output_kind: document
+    source_type: sec_filing
+    source_tier: regulatory_primary
+    source_family_strategy: issuer
+    base_url: https://data.sec.gov
+    user_agent_env: SEC_USER_AGENT
+    requires_api_key: false
+    rate_limit_per_second: 8
+    license_notes: SEC public EDGAR access; follow fair-access and user-agent guidance.
+
+  - source_id: company_ir
+    enabled: true
+    adapter: company_ir
+    output_kind: document
+    source_type: company_ir
+    source_tier: company_primary
+    source_family_strategy: issuer
+    requires_api_key: false
+    rate_limit_per_second: 1
+    license_notes: Prefer official company IR, newsroom, RSS, Atom, and earnings pages.
+
+  - source_id: yfinance
+    enabled: true
+    adapter: yfinance_adapter
+    output_kind: market_context
+    source_type: market_data
+    source_tier: market_context
+    source_family_strategy: provider
+    requires_api_key: false
+    rate_limit_per_second: 1
+    license_notes: Use as market context only; do not treat price moves as causal evidence.
+
+  - source_id: tavily
+    enabled: true
+    adapter: tavily_search
+    output_kind: search_lead
+    source_type: search
+    source_tier: search_lead
+    source_family_strategy: provider
+    base_url: https://api.tavily.com
+    api_key_env: TAVILY_API_KEY
+    requires_api_key: true
+    rate_limit_per_second: 1
+    license_notes: Search result snippets are leads, not evidence.
+
+  - source_id: brave_search
+    enabled: true
+    adapter: brave_search
+    output_kind: search_lead
+    source_type: search
+    source_tier: search_lead
+    source_family_strategy: provider
+    base_url: https://api.search.brave.com
+    api_key_env: BRAVE_SEARCH_API_KEY
+    requires_api_key: true
+    rate_limit_per_second: 1
+    license_notes: Search result snippets are leads, not evidence.
+
+  - source_id: stock_sentiment
+    enabled: true
+    adapter: stock_sentiment
+    output_kind: attention_signal
+    source_type: social_sentiment
+    source_tier: attention_signal
+    source_family_strategy: provider
+    base_url: https://api.adanos.org
+    api_key_env: STOCK_SENTIMENT_API_KEY
+    requires_api_key: true
+    rate_limit_per_second: 1
+    license_notes: Social and sentiment metrics are weak attention signals, not evidence.

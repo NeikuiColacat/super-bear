@@ -1,0 +1,43 @@
+version: 1
+sec_edgar:
+  include_forms:
+    - 8-K
+    - 10-K
+    - 10-Q
+    - DEF 14A
+  include_exhibits:
+    - EX-99.1
+    - EX-99
+  document_source_types:
+    - sec_filing
+    - sec_exhibit
+  skip_forms:
+    - 3
+    - 4
+    - 5
+
+company_ir:
+  include_page_types:
+    - company_ir
+    - company_newsroom
+    - company_earnings_release
+    - press_release
+  document_source_types:
+    - company_ir
+    - company_newsroom
+    - company_earnings_release
+  source_family_strategy: issuer
+
+press_release_wire:
+  priority: p1
+  document_source_types:
+    - press_release_wire
+  source_tier: company_distributed
+  source_family_strategy: issuer
+  note: Wire releases can be documents, but they are not independent confirmation when distributed by the issuer.
+
+non_document_sources:
+  - yfinance
+  - tavily
+  - brave_search
+  - stock_sentiment
