@@ -11,6 +11,12 @@ from packages.ingestion.adapters.base import AdapterBatch
 
 _OUTPUT_FILES = {
     OutputKind.DOCUMENT: "documents.jsonl",
+    OutputKind.DOCUMENT_CHUNK: "document_chunks.jsonl",
+    OutputKind.CLAIM_CANDIDATE: "claim_candidates.jsonl",
+    OutputKind.EVIDENCE_SPAN_CANDIDATE: "evidence_span_candidates.jsonl",
+    OutputKind.CLAIM: "claims.jsonl",
+    OutputKind.EVIDENCE_SPAN: "evidence_spans.jsonl",
+    OutputKind.VALIDATION_ERROR: "validation_errors.jsonl",
     OutputKind.MARKET_CONTEXT: "market_context.jsonl",
     OutputKind.SEARCH_LEAD: "search_leads.jsonl",
     OutputKind.ATTENTION_SIGNAL: "attention_signals.jsonl",
@@ -46,6 +52,15 @@ class JsonlWriter:
 
         output_path = self.output_path_for(batch.output_kind)
         if not batch.records:
+            if batch.output_kind is OutputKind.VALIDATION_ERROR:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text("", encoding="utf-8")
+                return JsonlWriteResult(
+                    source_id=batch.source_id,
+                    output_kind=batch.output_kind,
+                    output_path=output_path,
+                    records_written=0,
+                )
             return JsonlWriteResult(
                 source_id=batch.source_id,
                 output_kind=batch.output_kind,

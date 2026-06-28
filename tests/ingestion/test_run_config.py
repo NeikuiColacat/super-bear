@@ -23,6 +23,7 @@ def test_ingestion_run_config_loads_yaml_template() -> None:
         "stock_sentiment",
     )
     assert config.skip_unimplemented_adapters is True
+    assert config.write_ledger is False
     assert config.source_options["sec_edgar"]["ciks"] == ["0000320193"]
     assert config.source_options["sec_edgar"]["fetch_primary_documents"] is True
     assert config.source_options["sec_edgar"]["primary_document_limit"] == 1
@@ -52,3 +53,28 @@ source_options:
 
     with pytest.raises(ValidationError, match="Input should be 1"):
         IngestionRunConfig.from_yaml(config_path)
+
+
+def test_ingestion_run_config_can_enable_pre_event_ledger(tmp_path) -> None:
+    config_path = tmp_path / "ingestion_run.yaml"
+    config_path.write_text(
+        """
+version: 1
+source_registry_path: configs/sources.yaml
+raw_dir: data/raw
+normalized_dir: data/normalized
+runs_dir: data/runs
+enabled_source_ids:
+  - sec_edgar
+write_ledger: true
+source_options:
+  sec_edgar:
+    ciks:
+      - "0000320193"
+""",
+        encoding="utf-8",
+    )
+
+    config = IngestionRunConfig.from_yaml(config_path)
+
+    assert config.write_ledger is True

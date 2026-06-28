@@ -9,6 +9,7 @@ from packages.ingestion.adapters.base import AdapterBatch, AdapterError
 from packages.ingestion.jsonl_writer import JsonlWriteResult
 from packages.ingestion.registry import SourceRegistry
 from packages.ingestion.run_manifest import (
+    RunDerivedOutput,
     RunManifest,
     RunManifestWriter,
     RunSourceResult,
@@ -41,6 +42,19 @@ def test_source_run_result_records_successful_adapter_batch() -> None:
         source=source,
         batch=batch,
         write_result=write_result,
+        derived_outputs=(
+            RunDerivedOutput(
+                output_kind=OutputKind.DOCUMENT_CHUNK,
+                output_path="data/normalized/document_chunks.jsonl",
+                records_written=2,
+            ),
+            RunDerivedOutput(
+                output_kind=OutputKind.VALIDATION_ERROR,
+                output_path="data/normalized/validation_errors.jsonl",
+                records_written=0,
+                skipped_reason="no_records",
+            ),
+        ),
     )
 
     assert result.source_id == "sec_edgar"
@@ -52,6 +66,10 @@ def test_source_run_result_records_successful_adapter_batch() -> None:
     assert result.output_path == "data/normalized/documents.jsonl"
     assert result.raw_uris == ("data/raw/sec_edgar/0000320193/submissions.json",)
     assert result.error is None
+    assert result.derived_outputs[0].output_kind is OutputKind.DOCUMENT_CHUNK
+    assert result.derived_outputs[0].records_written == 2
+    assert result.derived_outputs[1].output_kind is OutputKind.VALIDATION_ERROR
+    assert result.derived_outputs[1].skipped_reason == "no_records"
 
 
 def test_source_run_result_records_failed_adapter_batch_without_output() -> None:

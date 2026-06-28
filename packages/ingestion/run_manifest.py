@@ -26,6 +26,15 @@ class RunSourceStatus(StrEnum):
     SKIPPED = "skipped"
 
 
+class RunDerivedOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    output_kind: OutputKind
+    output_path: str | None = None
+    records_written: int = Field(ge=0)
+    skipped_reason: str | None = None
+
+
 class RunSourceResult(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -37,6 +46,7 @@ class RunSourceResult(BaseModel):
     records_written: int = Field(ge=0)
     raw_uris: tuple[str, ...] = ()
     output_path: str | None = None
+    derived_outputs: tuple[RunDerivedOutput, ...] = ()
     error: AdapterError | None = None
     skipped_reason: str | None = None
 
@@ -47,6 +57,7 @@ class RunSourceResult(BaseModel):
         source: SourceConfig,
         batch: AdapterBatch,
         write_result: JsonlWriteResult,
+        derived_outputs: tuple[RunDerivedOutput, ...] = (),
     ) -> RunSourceResult:
         if batch.source_id != source.source_id:
             raise ValueError("batch source_id must match source config")
@@ -64,6 +75,7 @@ class RunSourceResult(BaseModel):
             records_written=write_result.records_written,
             raw_uris=batch.raw_uris,
             output_path=str(write_result.output_path) if write_result.output_path else None,
+            derived_outputs=derived_outputs,
             error=batch.error,
             skipped_reason=write_result.skipped_reason,
         )

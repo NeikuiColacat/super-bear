@@ -3,6 +3,12 @@ from enum import StrEnum
 
 class OutputKind(StrEnum):
     DOCUMENT = "document"
+    DOCUMENT_CHUNK = "document_chunk"
+    CLAIM_CANDIDATE = "claim_candidate"
+    EVIDENCE_SPAN_CANDIDATE = "evidence_span_candidate"
+    CLAIM = "claim"
+    EVIDENCE_SPAN = "evidence_span"
+    VALIDATION_ERROR = "validation_error"
     MARKET_CONTEXT = "market_context"
     SEARCH_LEAD = "search_lead"
     ATTENTION_SIGNAL = "attention_signal"
@@ -42,6 +48,28 @@ class EntityKind(StrEnum):
     OTHER = "other"
 
 
+class EvidenceRelation(StrEnum):
+    SUPPORT = "support"
+    REFUTE = "refute"
+    UPDATE = "update"
+    UNCERTAIN = "uncertain"
+
+
+class ClaimType(StrEnum):
+    FACT = "fact"
+    FORECAST = "forecast"
+    OPINION = "opinion"
+    RUMOR = "rumor"
+
+
+class ClaimStatus(StrEnum):
+    SUPPORTED = "supported"
+    REFUTED = "refuted"
+    MISSING = "missing"
+    CONFLICTING = "conflicting"
+    OBSOLETE = "obsolete"
+
+
 DOCUMENT_SOURCE_TYPES = frozenset(
     {
         SourceType.SEC_FILING,
@@ -64,6 +92,17 @@ SOURCE_TYPE_ALLOWED_TIERS = {
     SourceType.SEARCH: frozenset({SourceTier.SEARCH_LEAD}),
     SourceType.SOCIAL_SENTIMENT: frozenset({SourceTier.ATTENTION_SIGNAL}),
 }
+
+DERIVED_ONLY_OUTPUT_KINDS = frozenset(
+    {
+        OutputKind.DOCUMENT_CHUNK,
+        OutputKind.CLAIM_CANDIDATE,
+        OutputKind.EVIDENCE_SPAN_CANDIDATE,
+        OutputKind.CLAIM,
+        OutputKind.EVIDENCE_SPAN,
+        OutputKind.VALIDATION_ERROR,
+    }
+)
 
 
 def is_document_source_type(source_type: SourceType) -> bool:

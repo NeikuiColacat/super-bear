@@ -15,6 +15,27 @@ def test_jsonl_writer_maps_output_kinds_to_normalized_files(tmp_path) -> None:
 
     assert writer.output_path_for(OutputKind.DOCUMENT) == tmp_path / "documents.jsonl"
     assert (
+        writer.output_path_for(OutputKind.DOCUMENT_CHUNK)
+        == tmp_path / "document_chunks.jsonl"
+    )
+    assert (
+        writer.output_path_for(OutputKind.CLAIM_CANDIDATE)
+        == tmp_path / "claim_candidates.jsonl"
+    )
+    assert (
+        writer.output_path_for(OutputKind.EVIDENCE_SPAN_CANDIDATE)
+        == tmp_path / "evidence_span_candidates.jsonl"
+    )
+    assert writer.output_path_for(OutputKind.CLAIM) == tmp_path / "claims.jsonl"
+    assert (
+        writer.output_path_for(OutputKind.EVIDENCE_SPAN)
+        == tmp_path / "evidence_spans.jsonl"
+    )
+    assert (
+        writer.output_path_for(OutputKind.VALIDATION_ERROR)
+        == tmp_path / "validation_errors.jsonl"
+    )
+    assert (
         writer.output_path_for(OutputKind.MARKET_CONTEXT)
         == tmp_path / "market_context.jsonl"
     )
@@ -120,3 +141,20 @@ def test_jsonl_writer_skips_empty_success_batches(tmp_path) -> None:
     assert result.output_path == tmp_path / "documents.jsonl"
     assert result.skipped_reason == "no_records"
     assert not (tmp_path / "documents.jsonl").exists()
+
+
+def test_jsonl_writer_writes_empty_validation_error_file(tmp_path) -> None:
+    writer = JsonlWriter(tmp_path)
+    batch = AdapterBatch.success(
+        source_id="sec_edgar",
+        output_kind=OutputKind.VALIDATION_ERROR,
+        retrieved_at=_retrieved_at(),
+        records=[],
+    )
+
+    result = writer.write_batch(batch)
+
+    assert result.records_written == 0
+    assert result.output_path == tmp_path / "validation_errors.jsonl"
+    assert result.skipped_reason is None
+    assert (tmp_path / "validation_errors.jsonl").read_text(encoding="utf-8") == ""

@@ -163,3 +163,31 @@ sources:
 
     with pytest.raises(ValidationError, match="not valid for source_type"):
         SourceRegistry.from_yaml(config_path)
+
+
+def test_registry_rejects_derived_output_kinds_as_primary_sources(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "sources.yaml"
+    config_path.write_text(
+        """
+version: 1
+sources:
+  - source_id: bad_claim_output
+    enabled: true
+    adapter: ledger
+    output_kind: claim
+    default_source_type: sec_filing
+    allowed_source_types:
+      - sec_filing
+    source_tier: regulatory_primary
+    source_family_strategy: issuer
+    requires_api_key: false
+    rate_limit_per_second: 1
+    license_notes: invalid
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValidationError, match="derived output kinds"):
+        SourceRegistry.from_yaml(config_path)

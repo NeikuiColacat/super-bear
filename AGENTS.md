@@ -1,68 +1,157 @@
 # AGENTS.md
 
-## Project mission
+## Project Mission
 
 This repository implements an attention-budgeted event intelligence system for ordinary Nasdaq-100 / US technology-stock investors.
 
-The product is not a trading terminal, not a buy/sell signal engine, and not an investment adviser. It is an evidence-grounded information-prioritization system: collect many sources, consolidate them into events, verify claims against source evidence, rank the events, and generate a low-stress daily brief of roughly 4-5 items per user.
+The product is not a trading terminal, not a buy/sell signal engine, and not an investment adviser. It is an evidence-grounded information-prioritization system: collect many permitted sources, consolidate them into events, verify factual claims against source evidence, rank the events, and generate a low-stress daily brief of roughly 4-5 items per user.
 
-The research direction behind the product is Budgeted Event-Evidence Sufficiency for Search Agents: a search agent should know when the current evidence is sufficient, when to keep searching, and when to abstain under explicit query/read/token budgets.
+The research direction is Budgeted Event-Evidence Sufficiency for Search Agents: a search agent should know when current evidence is sufficient, when to keep searching, and when to abstain under explicit query/read/token/latency budgets.
 
-## Core product principles
-
-1. Attention budget first: prefer fewer, higher-value event cards over a real-time news stream.
-2. Event-first, not article-first: merge duplicate articles and updates into stable event objects.
-3. Evidence-first: every factual conclusion should map to a claim and supporting evidence span.
-4. Source-aware: distinguish SEC/regulator, company IR, press release, transcript, mainstream media, analyst opinion, aggregator, and social rumor.
-5. Time-aware: track `published_at`, `retrieved_at`, `event_time`, and whether evidence has been superseded.
-6. Budget-aware: do not run expensive open-ended agents per user. Use a global event engine plus cached event cards and lightweight user reranking.
-7. No investment advice: never produce buy/sell/hold recommendations, target-price conclusions, portfolio instructions, or promised returns.
-
-## Target architecture
+## Architectural Constitution
 
 Use this pipeline as the architectural source of truth:
 
 ```text
 Source Registry
   -> Deterministic Ingestion
-  -> Document Normalization
-  -> Retrieval + Dedup
-  -> Global Event Engine
+  -> RawStore + RunManifest
+  -> Document / Chunk / Span
+  -> LLM-Assisted Extraction
+  -> Deterministic Validation
   -> Claim-Evidence Ledger
   -> Sufficiency / Conflict / Temporal Validity Checks
-  -> Conditional Search Agent
-  -> Global Importance Ranking
-  -> Per-user Watchlist Reranking
-  -> Daily Brief Generation
+  -> Super Bear Tool/API Surface
+  -> External Investigator Harness
+  -> Deterministic Result Validation
+  -> Ranking + Diversity Control
+  -> EventCard / Daily Brief
 ```
 
 The key domain objects are:
 
 ```text
-Document -> Chunk / Span -> Event -> Claim -> Evidence -> EventCard -> Briefing
+Document -> Chunk / Span -> Event -> Claim -> EvidenceSpan -> EventCard -> Briefing
 ```
 
-The core technical asset is the Claim-Evidence Ledger, not the UI and not the agent framework.
+The core technical asset is the Claim-Evidence Ledger, not the UI, not the agent framework, and not any single model provider.
 
-## Recommended repository layout
+## Core Product Principles
+
+1. Attention budget first: prefer fewer, higher-value event cards over a real-time news stream.
+2. Event-first, not article-first: merge duplicate articles and updates into stable event objects.
+3. Evidence-first: every factual conclusion must map to a claim and one or more supporting evidence spans.
+4. Source-aware: distinguish SEC/regulator, company IR, press release, transcript, mainstream media, analyst opinion, aggregator, and social rumor.
+5. Time-aware: track `published_at`, `retrieved_at`, `event_time`, and whether evidence has been superseded.
+6. Budget-aware: do not run open-ended agents per user. Use a global event engine plus cached event cards and lightweight user reranking.
+7. Harness-resilient: external agent harness upgrades should change adapters, not the provenance ledger or core schemas.
+8. Model-resilient: model upgrades should change model routing, prompts, and extraction quality, not the provenance ledger or core schemas.
+9. No investment advice: never produce buy/sell/hold recommendations, target-price conclusions, portfolio instructions, or promised returns.
+
+## LLM Boundary
+
+LLMs may propose structured candidates, but deterministic validation and the Claim-Evidence Ledger decide what becomes a system fact.
+
+LLMs may:
+
+```text
+extract entity candidates
+extract event candidates
+draft claim candidates
+find evidence-span candidates
+label document sections
+summarize structured event cards
+judge sufficiency or conflict inside a bounded evidence pack
+```
+
+LLMs must not:
+
+```text
+invent source provenance
+generate stable IDs without deterministic checks
+decide source license or storage policy
+turn search snippets, social sentiment, or price movement into primary evidence
+write user-facing factual sentences without claim/evidence IDs
+perform unbounded browsing
+produce investment advice
+state that one event caused a price move unless the evidence explicitly supports that relation
+```
+
+Use low-cost models for broad schema-bound extraction. Use stronger models only for high-value adjudication, conflicts, sufficiency checks, abstention decisions, and final compliance review.
+
+## External Agent Harness Boundary
+
+Super Bear should not depend on one self-built agent framework. External tools such as Claude Code, GitHub Copilot CLI, OpenCode, Kilo Code, nanobot, Langcli, future GPT-based agents, or other harnesses are replaceable execution environments for the same bounded investigator contract.
+
+Super Bear Core owns:
+
+```text
+source registry
+raw store
+document / chunk / span access
+claim-evidence ledger
+validation
+budgets
+audit records
+final ledger commits
+```
+
+External harnesses may:
+
+```text
+call approved Super Bear tools
+search approved source families
+read documents and chunks
+propose claims
+propose evidence spans
+propose sufficiency / conflict / abstain decisions
+return structured investigation results
+```
+
+External harnesses must not:
+
+```text
+write directly to the Claim-Evidence Ledger
+bypass deterministic result validation
+ignore query/read/token/latency budgets
+use tools outside the allowed action list
+invent source provenance
+produce final user-facing facts without evidence IDs
+```
+
+Expose Super Bear Core in this order:
+
+```text
+1. Python API
+2. CLI wrapper: stdin JSON -> stdout JSON
+3. MCP server, when tool contracts stabilize
+4. HTTP API, when product services need it
+5. harness-specific skill/plugin packages, only as thin adapters
+```
+
+The stable contract is the tool schema and result schema, not any particular harness.
+
+## Recommended Repository Layout
 
 Create or preserve a monorepo layout close to this:
 
 ```text
 apps/
-  api/                  # FastAPI service
-  web/                  # Next.js frontend
+  api/                  # FastAPI service, product mode
+  web/                  # Next.js frontend, product mode
 packages/
   core/                 # shared Python domain models and schemas
-  ingestion/            # source registry, fetchers, parsers
-  retrieval/            # BM25/dense/hybrid retrieval, reranking
-  events/               # event clustering, dedup, event relations
-  evidence/             # claim extraction, evidence span linking, sufficiency checks
-  agent/                # LangGraph state machine and agent tools
+  ingestion/            # source registry, fetchers, parsers, raw store
+  extraction/           # LLM-assisted candidate extraction
+  tools/                # callable Super Bear tools for external harnesses
+  retrieval/            # BM25/dense/hybrid retrieval, later
+  events/               # event assembly, dedup, event relations
+  evidence/             # claims, evidence spans, sufficiency checks
+  harness/              # external harness adapters, CLI/MCP/http wrappers
   ranking/              # global scoring, MMR, user rerank
-  briefing/             # event card and daily brief generation
+  briefing/             # event cards and daily brief generation
 pipelines/
-  dagster/              # scheduled assets/jobs for ingestion and event pool generation
+  dagster/              # scheduled assets/jobs, later
 research/
   benchmarks/           # frozen corpora, eval specs, baselines
   experiments/          # reproducible experiment scripts
@@ -76,37 +165,47 @@ tests/                  # integration and cross-package tests
 
 If the actual repository structure already differs, inspect it first and adapt to the existing layout instead of creating duplicate parallel folders.
 
-## Preferred stack
+## Preferred Stack
 
-Backend and research:
-- Python 3.11+
-- FastAPI for API services
-- Pydantic for all structured inputs/outputs
-- SQLAlchemy or SQLModel for database access
-- Alembic for migrations
-- PostgreSQL as the system-of-record database
-- pgvector for early vector retrieval in product mode
-- Pyserini for reproducible research retrieval baselines
-- Dagster for deterministic data pipelines
-- LangGraph for stateful conditional agent workflows
-- LiteLLM or an equivalent gateway for model-provider abstraction
+Early MVP, optimized for a 2-3 day auditable loop:
 
-Frontend:
-- Next.js + TypeScript
-- Server-side rendering where useful
-- Keep frontend logic thin; core event/evidence logic belongs in backend packages
+```text
+Python 3.11+
+Pydantic for structured models
+YAML for non-secret configuration
+JSONL for portable pipeline outputs
+filesystem RawStore
+CLI runner
+pytest
+versioned prompts
+ModelRun records
+InvestigatorRun records
+low-cost LLM for extraction
+stronger LLM for bounded adjudication
+Python API and CLI wrappers for tools
+```
 
-Infrastructure:
-- Docker Compose for local development
-- S3-compatible object storage or MinIO for raw documents and parsed artifacts
-- Redis only when caching is needed
-- Do not introduce Kafka, Kubernetes, Neo4j, or a distributed workflow engine until there is a demonstrated need
+Product mode, only after the JSONL loop proves useful:
 
-Observability:
-- Record agent runs, queries, retrieved documents, read documents, model names, prompt versions, token counts, latency, cost, stop decisions, and final citations
-- Prefer structured logs over free-form logs
+```text
+FastAPI
+PostgreSQL
+SQLAlchemy or SQLModel
+Alembic
+pgvector when retrieval scale justifies it
+S3-compatible object storage or MinIO
+Dagster for deterministic scheduled pipelines
+LiteLLM or equivalent model gateway
+MCP server when tool contracts stabilize
+LangGraph or another harness only when durable multi-step state is needed
+structured observability
+```
 
-## Data model requirements
+Do not introduce Kafka, Kubernetes, Neo4j, complex GraphRAG, multi-agent teams, or a distributed workflow engine until there is a demonstrated need.
+
+Redis is allowed only when caching or background-job pressure actually exists.
+
+## Data Model Requirements
 
 Use explicit schema objects. Avoid passing untyped dictionaries through the core pipeline.
 
@@ -127,6 +226,18 @@ content_hash
 parser_version
 language
 entities
+```
+
+Minimum `Chunk` / `Span` fields:
+
+```text
+chunk_id or span_id
+doc_id
+text
+char_start
+char_end
+section_label
+content_hash
 ```
 
 Minimum `Event` fields:
@@ -173,13 +284,53 @@ valid_to
 confidence
 ```
 
+Minimum `ModelRun` fields:
+
+```text
+model
+prompt_version
+input_tokens
+output_tokens
+cache_hit_tokens
+cache_miss_tokens
+cost_estimate
+latency_ms
+schema_validation_status
+source_doc_ids
+output_object_ids
+```
+
+Minimum `InvestigatorRun` fields:
+
+```text
+investigator_run_id
+harness_name
+harness_version
+adapter_version
+model_name
+prompt_version
+allowed_actions
+query_budget
+read_budget
+token_budget
+latency_budget_ms
+input_event_ids
+input_claim_ids
+input_evidence_span_ids
+tool_calls
+output_object_ids
+stop_reason
+abstained
+validation_status
+```
+
 Never generate a user-facing factual sentence that cannot be traced back to one or more claim/evidence IDs.
 
-## Agent design rules
+## Investigator Harness Rules
 
-The agent is conditional and bounded. It should only run when deterministic retrieval and verification indicate a real evidence gap, conflict, or high-value uncertainty.
+The investigator is a bounded contract that may be implemented by an external harness. It should only run when deterministic retrieval and verification indicate a real evidence gap, conflict, temporal-validity issue, or high-value uncertainty.
 
-Allowed agent actions should remain finite and auditable:
+Allowed harness actions must remain finite and auditable:
 
 ```text
 SEARCH_PRIMARY_SOURCE
@@ -194,7 +345,7 @@ STOP
 ABSTAIN
 ```
 
-Every agent run must include explicit budgets:
+Every investigator run must include explicit budgets:
 
 ```text
 query_budget
@@ -203,11 +354,15 @@ token_budget
 latency_budget_ms
 ```
 
-Stop only when mandatory claims are covered, key conflicts are resolved or explicitly marked unresolved, evidence is temporally valid, and marginal expected evidence gain is lower than search cost. Abstain when evidence remains insufficient after budget exhaustion.
+Stop only when mandatory claims are covered, key conflicts are resolved or explicitly marked unresolved, evidence is temporally valid, and marginal expected evidence gain is lower than search cost.
+
+Abstain when evidence remains insufficient after budget exhaustion.
 
 Do not implement open-ended autonomous browsing as a default behavior.
 
-## Ranking rules
+Harness output is advisory until Super Bear validates it. New claims, evidence spans, events, sufficiency decisions, and event cards must pass deterministic result validation before they can update the Claim-Evidence Ledger.
+
+## Ranking Rules
 
 Ranking must separate:
 
@@ -216,7 +371,7 @@ Ranking must separate:
 3. User relevance
 4. Diversity / redundancy control
 
-Initial ranking should be interpretable: rules, LightGBM/XGBoost, MMR, or other transparent listwise selection are preferred over an opaque LLM-only ranker.
+Initial ranking should be interpretable: rules, MMR, or other transparent listwise selection are preferred over opaque LLM-only ranking.
 
 Useful global ranking signals:
 
@@ -232,6 +387,8 @@ rumor_risk
 unresolved_conflict
 ```
 
+Market movement is allowed only as context or confirmation. It must not become trading advice or unsupported causal attribution.
+
 Useful user reranking signals:
 
 ```text
@@ -245,9 +402,9 @@ topic_fatigue
 
 The system recommends information priority, not investment actions.
 
-## Brief generation rules
+## Brief Generation Rules
 
-Briefs should be generated from structured event cards, not directly from raw news.
+Briefs must be generated from structured event cards, not directly from raw news.
 
 Each event card should include:
 
@@ -263,13 +420,15 @@ user relevance explanation
 ```
 
 Forbidden output:
+
 - Buy/sell/hold instructions
 - Guaranteed or implied return claims
 - Unverified rumors presented as facts
 - Analyst opinions rewritten as confirmed facts
 - Price targets as system conclusions
+- Unsupported causal claims about price movement
 
-## Research mode vs product mode
+## Research Mode vs Product Mode
 
 Research mode must be reproducible:
 
@@ -287,7 +446,7 @@ Product mode may be live, but should still preserve raw documents, parsed artifa
 
 Do not mix live-web-only behavior into the main research benchmark path.
 
-## Data-source and compliance rules
+## Data-Source and Compliance Rules
 
 1. Prefer APIs, RSS, SEC EDGAR, company IR, and other permitted sources over scraping.
 2. Track source license and redistribution policy in the Source Registry.
@@ -296,28 +455,88 @@ Do not mix live-web-only behavior into the main research benchmark path.
 5. Social media should be used only as a weak signal or lead source unless independently verified.
 6. Do not implement features that route users to brokers, automate trades, or provide individualized investment advice.
 
-## Development workflow for Codex
+Minimum Source Registry policy fields:
+
+```text
+license_type
+storage_allowed
+redistribution_allowed
+full_text_allowed
+derived_only
+rate_limit_policy
+source_tier
+source_family_id
+```
+
+## Initial MVP Scope
+
+Build first:
+
+1. Source Registry
+2. Deterministic ingestion for SEC / IR / press-release skeletons
+3. RawStore + RunManifest
+4. Document normalization and Chunk / Span representation
+5. LLM-assisted extraction skeleton with versioned prompts
+6. Deterministic validation for schema, timestamps, source tier, source family, and char offsets
+7. Event schema and deterministic event assembler
+8. Claim-Evidence Ledger schema
+9. Sufficiency / conflict / temporal-validity checker stub
+10. Super Bear tool functions for read-only document, chunk, claim, and evidence access
+11. CLI wrapper for the investigator contract: stdin JSON -> stdout JSON
+12. Deterministic result validator for harness outputs
+13. EventCard generator from structured fields
+14. Daily brief Markdown or HTML output
+
+Do not build first:
+
+- Real-time trading signals
+- Full social-media monitoring
+- Automated portfolio advice
+- Mobile app
+- Complex GraphRAG
+- Multi-agent teams
+- Full Kubernetes deployment
+- Custom financial LLM training
+- Full Web SaaS permissions
+- Heavy observability stack before audit logs exist
+
+## Development Workflow for Codex
+
+### Subagent Delegation Habit
+
+For every non-trivial request, first ask whether the work can be usefully split across multiple subagents before doing it inline. Prefer parallel subagents when the task has independent slices such as:
+
+- codebase reconnaissance across different packages
+- technology or library selection across different options
+- schema/design review versus runner/integration review
+- implementation review versus test-gap review
+- broad research where source families or themes are separable
+
+Keep delegated work concrete and bounded. Use read-only explorer subagents for research, audits, and design comparison. Use worker subagents only when write scopes are disjoint and explicitly assigned. Do not spawn subagents for tiny one-line commands, simple explanations, or tightly coupled edits where coordination would cost more than it saves.
 
 Before editing:
+
 - Inspect the existing repository structure.
 - Read this file and any package-level AGENTS.md files.
 - Identify the smallest safe change that satisfies the task.
 - Avoid broad rewrites unless explicitly requested.
 
 While editing:
+
 - Keep domain logic in backend/core packages, not in notebooks or frontend components.
 - Use typed models and explicit schemas.
 - Add or update tests with every behavioral change.
-- Prefer deterministic functions for ingestion, parsing, event clustering, and evidence checks.
+- Prefer deterministic functions for ingestion, parsing, validation, event assembly, evidence checks, and ranking.
 - Keep LLM prompts versioned and testable.
 - Do not commit secrets, API keys, raw credentials, or local `.env` files.
 
 After editing:
+
 - Run the most relevant tests and linters available.
 - If a command is missing or fails because the project is not initialized yet, state that clearly in the final summary.
 - Summarize changed files, behavior changes, tests run, and remaining risks.
 
-## Expected commands
+## Expected Commands
 
 Use the actual project commands if they already exist. If not, initialize toward the following conventions.
 
@@ -355,64 +574,42 @@ uv run alembic upgrade head
 
 Do not claim tests passed unless they were actually run.
 
-## Code style
+## Code Style
 
 Python:
+
 - Prefer pure functions for pipeline transforms.
 - Use Pydantic models at system boundaries.
 - Use timezone-aware datetimes.
 - Avoid global mutable state.
 - Avoid hidden network calls in constructors or import paths.
-- Keep parsing, retrieval, ranking, and generation modules separate.
+- Keep parsing, extraction, retrieval, ranking, and generation modules separate.
 
 TypeScript:
+
 - Use strict TypeScript.
 - Keep API types generated or mirrored from backend schemas where possible.
 - Keep UI components presentation-focused.
 
 SQL:
+
 - Use migrations for schema changes.
 - Keep event, claim, evidence, and provenance tables queryable and auditable.
 - Avoid destructive migrations without explicit approval.
 
-## Initial MVP scope
-
-Build first:
-
-1. Source Registry
-2. SEC / IR / press-release ingestion skeletons
-3. Document normalization and chunk/span representation
-4. Basic BM25 / vector retrieval interface
-5. Event object schema and simple clustering
-6. Claim-Evidence Ledger schema
-7. Sufficiency checker stub with rule-based logic
-8. Conditional agent state machine skeleton
-9. Event card generator from structured fields
-10. Daily brief endpoint and minimal UI
-
-Do not build first:
-
-- Real-time trading signals
-- Full social-media monitoring
-- Automated portfolio advice
-- Mobile app
-- Complex GraphRAG
-- Multi-agent teams
-- Full Kubernetes deployment
-- Custom financial LLM training
-
-## Acceptance criteria for early tasks
+## Acceptance Criteria for Early Tasks
 
 A change is acceptable when it:
 
-1. Preserves the Document -> Event -> Claim -> Evidence model.
+1. Preserves the Document -> Event -> Claim -> EvidenceSpan model.
 2. Keeps source provenance and timestamps intact.
 3. Has tests or a clear reason tests are not yet possible.
 4. Does not introduce unbounded agent behavior.
 5. Does not weaken compliance boundaries around investment advice.
 6. Does not add unnecessary infrastructure.
 7. Keeps the MVP path simple and reproducible.
+8. Keeps external harnesses behind stable tool/result contracts.
 
-## If uncertain
+## If Uncertain
 
 Prefer the narrower, auditable, reproducible implementation. Ask for clarification before introducing new infrastructure, changing the domain model, or adding external data sources with unclear licensing.

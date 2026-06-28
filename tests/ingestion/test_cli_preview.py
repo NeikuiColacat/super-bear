@@ -4,7 +4,7 @@ from packages.ingestion.cli_preview import (
     build_cli_preview,
     format_cli_preview,
 )
-from packages.ingestion.run_manifest import RunSourceResult
+from packages.ingestion.run_manifest import RunDerivedOutput, RunSourceResult
 
 
 def test_build_cli_preview_summarizes_current_document_records() -> None:
@@ -102,3 +102,72 @@ def test_format_cli_preview_prints_source_summary() -> None:
         "- tavily: skipped, records_written=0, "
         "skipped_reason=adapter_not_implemented"
     ) in output
+
+
+def test_cli_preview_summarizes_derived_document_chunks() -> None:
+    source_result = RunSourceResult(
+        source_id="sec_edgar",
+        adapter="sec_edgar",
+        output_kind=OutputKind.DOCUMENT,
+        status="success",
+        records_seen=1,
+        records_written=1,
+        output_path="data/normalized/documents.jsonl",
+        derived_outputs=(
+            RunDerivedOutput(
+                output_kind=OutputKind.DOCUMENT_CHUNK,
+                output_path="data/normalized/document_chunks.jsonl",
+                records_written=2,
+            ),
+            RunDerivedOutput(
+                output_kind=OutputKind.CLAIM,
+                output_path="data/normalized/claims.jsonl",
+                records_written=1,
+            ),
+            RunDerivedOutput(
+                output_kind=OutputKind.EVIDENCE_SPAN,
+                output_path="data/normalized/evidence_spans.jsonl",
+                records_written=1,
+            ),
+            RunDerivedOutput(
+                output_kind=OutputKind.VALIDATION_ERROR,
+                output_path="data/normalized/validation_errors.jsonl",
+                records_written=0,
+                skipped_reason="no_records",
+            ),
+        ),
+    )
+
+    preview = build_cli_preview(
+        source_result,
+        records=[
+            {
+                "doc_id": "sec:apple:10q",
+                "title": "Apple Inc. 10-Q filed 2026-05-01",
+                "metadata": {"form": "10-Q"},
+            },
+        ],
+        chunk_records=[
+            {
+                "chunk_id": "sec:apple:10q:chunk:000000",
+                "doc_id": "sec:apple:10q",
+                "text": "Apple reported quarterly results.",
+            }
+        ],
+    )
+
+    output = format_cli_preview(
+        run_id="run_20260628T080000Z",
+        manifest_path="data/runs/run_20260628T080000Z/manifest.json",
+        previews=[preview],
+    )
+
+    assert preview.derived_outputs[0].records_written == 2
+    assert preview.chunk_samples[0].text == "Apple reported quarterly results."
+    assert "derived:" in output
+    assert "document_chunk: records_written=2" in output
+    assert "claim: records_written=1" in output
+    assert "evidence_span: records_written=1" in output
+    assert "validation_error: records_written=0, skipped_reason=no_records" in output
+    assert "chunk samples:" in output
+    assert "Apple reported quarterly results." in output

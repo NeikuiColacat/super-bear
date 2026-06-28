@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 import yaml
 
 from packages.core import (
+    DERIVED_ONLY_OUTPUT_KINDS,
     OutputKind,
     SourceTier,
     SourceType,
@@ -51,6 +52,9 @@ class SourceConfig(BaseModel):
 
     @model_validator(mode="after")
     def _validate_output_mapping(self) -> SourceConfig:
+        if self.output_kind in DERIVED_ONLY_OUTPUT_KINDS:
+            raise ValueError("derived output kinds cannot be primary source outputs")
+
         if self.default_source_type not in self.allowed_source_types:
             raise ValueError("default_source_type must be listed in allowed_source_types")
 

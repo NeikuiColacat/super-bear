@@ -1,7 +1,15 @@
 from datetime import datetime, timezone
 import json
 
-from packages.core import OutputKind
+from packages.core import (
+    Document,
+    OutputKind,
+    SourceTier,
+    SourceType,
+    make_content_hash,
+    make_doc_id,
+    make_issuer_family_id,
+)
 from packages.ingestion.adapters.base import (
     AdapterBatch,
     AdapterError,
@@ -89,6 +97,62 @@ class PreviewSecAdapter(BaseSourceAdapter):
                 },
             ],
             raw_uris=["data/raw/sec_edgar/0000320193/submissions.json"],
+        )
+
+
+class ChunkingSecAdapter(BaseSourceAdapter):
+    source_id = "sec_edgar"
+
+    def fetch(self, *, limit: int | None = None) -> AdapterBatch:
+        assert self.raw_dir is not None
+        raw_path = (
+            self.raw_dir
+            / "sec_edgar"
+            / "0000320193"
+            / "000032019326000013"
+            / "aapl-20260328.htm"
+        )
+        raw_path.parent.mkdir(parents=True, exist_ok=True)
+        raw_path.write_text(
+            """
+            <html>
+              <body>
+                <p>First filing sentence.</p>
+                <p>Net sales increased year over year.</p>
+              </body>
+            </html>
+            """,
+            encoding="utf-8",
+        )
+        document = Document(
+            doc_id=make_doc_id(
+                "sec",
+                "0000320193",
+                "0000320193-26-000013",
+                "aapl-20260328.htm",
+            ),
+            source_id="sec_edgar",
+            source_type=SourceType.SEC_FILING,
+            source_tier=SourceTier.REGULATORY_PRIMARY,
+            source_family_id=make_issuer_family_id("0000320193"),
+            title="Apple Inc. 10-Q filed 2026-05-01",
+            url="https://www.sec.gov/Archives/edgar/data/320193/000032019326000013/aapl-20260328.htm",
+            published_at=_ts(8, 1),
+            retrieved_at=_ts(8, 1),
+            raw_object_uri="data/raw/sec_edgar/0000320193/submissions.json",
+            content_hash=make_content_hash("document metadata"),
+            parser_version="sec_submissions_v0.1",
+            metadata={
+                "form": "10-Q",
+                "primary_document_raw_uri": str(raw_path),
+            },
+        )
+        return AdapterBatch.success(
+            source_id=self.source.source_id,
+            output_kind=self.source.output_kind,
+            retrieved_at=_ts(8, 1),
+            records=[document.model_dump(mode="json")],
+            raw_uris=[str(raw_path)],
         )
 
 
@@ -294,3 +358,197 @@ source_options:
         )
     )
     assert [source["source_id"] for source in payload["sources"]] == ["tavily"]
+
+
+def test_runner_can_write_document_chunks_as_derived_output(tmp_path) -> None:
+    registry = SourceRegistry.from_yaml("configs/sources.yaml")
+
+    result = run_ingestion(
+        registry=registry,
+        normalized_dir=tmp_path / "normalized",
+        raw_dir=tmp_path / "raw",
+        runs_dir=tmp_path / "runs",
+        run_id="run_20260628T080000Z",
+        adapter_classes={"sec_edgar": ChunkingSecAdapter},
+        source_ids=("sec_edgar",),
+        write_chunks=True,
+        started_at=_ts(8, 0),
+        finished_at=_ts(8, 2),
+    )
+
+    chunks_path = tmp_path / "normalized" / "document_chunks.jsonl"
+    chunk_records = [
+        json.loads(line) for line in chunks_path.read_text(encoding="utf-8").splitlines()
+    ]
+
+    assert len(chunk_records) == 1
+    assert chunk_records[0]["chunk_id"].endswith(":chunk:000000")
+    assert chunk_records[0]["text"] == "First filing sentence. Net sales increased year over year."
+    assert chunk_records[0]["metadata"]["text_source"] == "metadata.primary_document_raw_uri"
+
+    derived = result.manifest.sources[0].derived_outputs[0]
+    assert derived.output_kind is OutputKind.DOCUMENT_CHUNK
+    assert derived.output_path == str(chunks_path)
+    assert derived.records_written == 1
+
+    preview = result.cli_previews[0]
+    assert preview.derived_outputs[0].records_written == 1
+    assert preview.chunk_samples[0].text == chunk_records[0]["text"]
+
+
+def test_runner_overwrites_normalized_outputs_for_each_run(tmp_path) -> None:
+    registry = SourceRegistry.from_yaml("configs/sources.yaml")
+    kwargs = {
+        "registry": registry,
+        "normalized_dir": tmp_path / "normalized",
+        "raw_dir": tmp_path / "raw",
+        "runs_dir": tmp_path / "runs",
+        "adapter_classes": {"sec_edgar": ChunkingSecAdapter},
+        "source_ids": ("sec_edgar",),
+        "write_ledger": True,
+        "started_at": _ts(8, 0),
+        "finished_at": _ts(8, 2),
+    }
+
+    run_ingestion(run_id="run_20260628T080000Z", **kwargs)
+    run_ingestion(run_id="run_20260628T080100Z", **kwargs)
+
+    documents = (tmp_path / "normalized" / "documents.jsonl").read_text(
+        encoding="utf-8"
+    ).splitlines()
+    chunks = (tmp_path / "normalized" / "document_chunks.jsonl").read_text(
+        encoding="utf-8"
+    ).splitlines()
+    claim_candidates = (
+        tmp_path / "normalized" / "claim_candidates.jsonl"
+    ).read_text(encoding="utf-8").splitlines()
+    evidence_candidates = (
+        tmp_path / "normalized" / "evidence_span_candidates.jsonl"
+    ).read_text(encoding="utf-8").splitlines()
+    claims = (tmp_path / "normalized" / "claims.jsonl").read_text(
+        encoding="utf-8"
+    ).splitlines()
+    evidence_spans = (tmp_path / "normalized" / "evidence_spans.jsonl").read_text(
+        encoding="utf-8"
+    ).splitlines()
+
+    assert len(documents) == 1
+    assert len(chunks) == 1
+    assert len(claim_candidates) == 1
+    assert len(evidence_candidates) == 1
+    assert len(claims) == 1
+    assert len(evidence_spans) == 1
+
+
+def test_runner_clears_stale_ledger_outputs_when_ledger_is_disabled(tmp_path) -> None:
+    registry = SourceRegistry.from_yaml("configs/sources.yaml")
+    kwargs = {
+        "registry": registry,
+        "normalized_dir": tmp_path / "normalized",
+        "raw_dir": tmp_path / "raw",
+        "runs_dir": tmp_path / "runs",
+        "adapter_classes": {"sec_edgar": ChunkingSecAdapter},
+        "source_ids": ("sec_edgar",),
+        "started_at": _ts(8, 0),
+        "finished_at": _ts(8, 2),
+    }
+
+    run_ingestion(
+        run_id="run_20260628T080000Z",
+        write_ledger=True,
+        **kwargs,
+    )
+    run_ingestion(
+        run_id="run_20260628T080100Z",
+        write_ledger=False,
+        **kwargs,
+    )
+
+    assert not (tmp_path / "normalized" / "claims.jsonl").exists()
+    assert not (tmp_path / "normalized" / "evidence_spans.jsonl").exists()
+    assert not (tmp_path / "normalized" / "validation_errors.jsonl").exists()
+
+
+def test_runner_can_write_claim_and_evidence_candidates(tmp_path) -> None:
+    registry = SourceRegistry.from_yaml("configs/sources.yaml")
+
+    result = run_ingestion(
+        registry=registry,
+        normalized_dir=tmp_path / "normalized",
+        raw_dir=tmp_path / "raw",
+        runs_dir=tmp_path / "runs",
+        run_id="run_20260628T080000Z",
+        adapter_classes={"sec_edgar": ChunkingSecAdapter},
+        source_ids=("sec_edgar",),
+        write_candidates=True,
+        started_at=_ts(8, 0),
+        finished_at=_ts(8, 2),
+    )
+
+    claim_path = tmp_path / "normalized" / "claim_candidates.jsonl"
+    evidence_path = tmp_path / "normalized" / "evidence_span_candidates.jsonl"
+    claims = [
+        json.loads(line) for line in claim_path.read_text(encoding="utf-8").splitlines()
+    ]
+    evidence_spans = [
+        json.loads(line)
+        for line in evidence_path.read_text(encoding="utf-8").splitlines()
+    ]
+
+    assert len(claims) == 1
+    assert len(evidence_spans) == 1
+    assert claims[0]["claim_text"] == "Net sales increased year over year."
+    assert evidence_spans[0]["text"] == claims[0]["claim_text"]
+    assert evidence_spans[0]["claim_candidate_id"] == claims[0]["claim_candidate_id"]
+    assert {
+        output.output_kind
+        for output in result.manifest.sources[0].derived_outputs
+    } == {
+        OutputKind.DOCUMENT_CHUNK,
+        OutputKind.CLAIM_CANDIDATE,
+        OutputKind.EVIDENCE_SPAN_CANDIDATE,
+    }
+
+
+def test_runner_can_write_pre_event_ledger(tmp_path) -> None:
+    registry = SourceRegistry.from_yaml("configs/sources.yaml")
+
+    result = run_ingestion(
+        registry=registry,
+        normalized_dir=tmp_path / "normalized",
+        raw_dir=tmp_path / "raw",
+        runs_dir=tmp_path / "runs",
+        run_id="run_20260628T080000Z",
+        adapter_classes={"sec_edgar": ChunkingSecAdapter},
+        source_ids=("sec_edgar",),
+        write_ledger=True,
+        started_at=_ts(8, 0),
+        finished_at=_ts(8, 2),
+    )
+
+    claim_path = tmp_path / "normalized" / "claims.jsonl"
+    evidence_path = tmp_path / "normalized" / "evidence_spans.jsonl"
+    claims = [
+        json.loads(line) for line in claim_path.read_text(encoding="utf-8").splitlines()
+    ]
+    evidence_spans = [
+        json.loads(line)
+        for line in evidence_path.read_text(encoding="utf-8").splitlines()
+    ]
+
+    assert len(claims) == 1
+    assert len(evidence_spans) == 1
+    assert claims[0]["event_id"] is None
+    assert claims[0]["claim_id"].endswith(":claim:000000")
+    assert evidence_spans[0]["claim_id"] == claims[0]["claim_id"]
+    assert {
+        output.output_kind
+        for output in result.manifest.sources[0].derived_outputs
+    } == {
+        OutputKind.DOCUMENT_CHUNK,
+        OutputKind.CLAIM_CANDIDATE,
+        OutputKind.EVIDENCE_SPAN_CANDIDATE,
+        OutputKind.CLAIM,
+        OutputKind.EVIDENCE_SPAN,
+        OutputKind.VALIDATION_ERROR,
+    }
