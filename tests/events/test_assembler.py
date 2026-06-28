@@ -5,6 +5,7 @@ from packages.core import (
     ClaimStatus,
     ClaimType,
     EvidenceRelation,
+    EvidenceStatus,
     EvidenceSpan,
     EventType,
     make_content_hash,
@@ -81,6 +82,7 @@ def test_assembler_groups_claims_from_same_document_into_one_event() -> None:
         "sec:apple:10q:claim:000000",
         "sec:apple:10q:claim:000001",
     )
+    assert event.evidence_status is EvidenceStatus.SUFFICIENT
     assert event.assembly_key == "issuer:0000320193|sec_filing|10-Q|20260628"
 
 

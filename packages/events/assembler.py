@@ -7,7 +7,6 @@ import re
 
 from packages.core import (
     Claim,
-    EvidenceRelation,
     EvidenceSpan,
     EvidenceStatus,
     Event,
@@ -15,6 +14,7 @@ from packages.core import (
     EventType,
     SourceType,
 )
+from packages.evidence import check_event_evidence
 
 
 ASSEMBLY_VERSION = "event_assembler_v0.1"
@@ -48,25 +48,41 @@ def assemble_events(
         related_doc_ids = tuple(sorted({span.doc_id for span in spans}))
         event_type = _event_type(spans[0])
         source_family_id = spans[0].source_family_id
+        event = Event(
+            event_id=_event_id(assembly_key, claim_ids),
+            canonical_title=_canonical_title(claims_by_id, claim_ids),
+            event_type=event_type,
+            entities=(),
+            event_time=min(span.published_at for span in spans).astimezone(
+                timezone.utc
+            ),
+            status=EventStatus.NEW,
+            related_doc_ids=related_doc_ids,
+            claim_ids=claim_ids,
+            evidence_status=EvidenceStatus.INSUFFICIENT,
+            assembly_key=assembly_key,
+            metadata={
+                "assembly_version": ASSEMBLY_VERSION,
+                "merge_reason": "same_source_family_event_type_form_and_day",
+                "source_family_id": source_family_id,
+            },
+        )
+        check = check_event_evidence(
+            event=event,
+            claims=(claims_by_id[claim_id] for claim_id in claim_ids),
+            evidence_spans=spans,
+        )
         events.append(
-            Event(
-                event_id=_event_id(assembly_key, claim_ids),
-                canonical_title=_canonical_title(claims_by_id, claim_ids),
-                event_type=event_type,
-                entities=(),
-                event_time=min(span.published_at for span in spans).astimezone(
-                    timezone.utc
-                ),
-                status=EventStatus.NEW,
-                related_doc_ids=related_doc_ids,
-                claim_ids=claim_ids,
-                evidence_status=_evidence_status(spans),
-                assembly_key=assembly_key,
-                metadata={
-                    "assembly_version": ASSEMBLY_VERSION,
-                    "merge_reason": "same_source_family_event_type_form_and_day",
-                    "source_family_id": source_family_id,
-                },
+            event.model_copy(
+                update={
+                    "status": check.event_status,
+                    "evidence_status": check.evidence_status,
+                    "metadata": {
+                        **event.metadata,
+                        "evidence_check_version": check.checker_version,
+                        "evidence_check_reasons": list(check.reasons),
+                    },
+                }
             )
         )
     return tuple(events)
@@ -105,13 +121,6 @@ def _canonical_title(
     claim_ids: tuple[str, ...],
 ) -> str:
     return claims_by_id[claim_ids[0]].claim_text
-
-
-def _evidence_status(spans: list[EvidenceSpan]) -> EvidenceStatus:
-    relations = {span.relation for span in spans}
-    if EvidenceRelation.REFUTE in relations and EvidenceRelation.SUPPORT in relations:
-        return EvidenceStatus.CONFLICTING
-    return EvidenceStatus.INSUFFICIENT
 
 
 def _slug(value: str) -> str:
