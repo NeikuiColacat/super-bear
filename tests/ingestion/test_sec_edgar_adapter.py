@@ -143,6 +143,91 @@ def test_sec_edgar_adapter_fetches_submissions_json_to_raw_store(tmp_path) -> No
     ]
 
 
+def test_sec_edgar_adapter_can_fetch_primary_document_html(tmp_path) -> None:
+    registry = SourceRegistry.from_yaml("configs/sources.yaml")
+    seen_urls = []
+
+    def fake_fetch(url: str, headers: dict[str, str], timeout: float) -> bytes:
+        seen_urls.append(url)
+        if url == "https://data.sec.gov/submissions/CIK0000320193.json":
+            return json.dumps(
+                {
+                    "cik": "0000320193",
+                    "name": "Apple Inc.",
+                    "tickers": ["AAPL"],
+                    "filings": {
+                        "recent": {
+                            "accessionNumber": [
+                                "0000320193-26-000010",
+                                "0000320193-26-000011",
+                            ],
+                            "filingDate": ["2026-05-01", "2026-04-30"],
+                            "reportDate": ["2026-03-28", "2026-04-30"],
+                            "acceptanceDateTime": [
+                                "2026-05-01T22:03:00.000Z",
+                                "2026-04-30T12:00:00.000Z",
+                            ],
+                            "form": ["10-Q", "8-K"],
+                            "primaryDocument": [
+                                "aapl-20260328.htm",
+                                "aapl-20260430.htm",
+                            ],
+                            "primaryDocDescription": ["10-Q", "8-K"],
+                            "items": ["", "2.02"],
+                            "size": [123, 456],
+                            "isXBRL": [1, 0],
+                            "isInlineXBRL": [1, 1],
+                        }
+                    },
+                }
+            ).encode("utf-8")
+        if url.endswith("/aapl-20260328.htm"):
+            return b"<html><body><p>Revenue increased year over year.</p></body></html>"
+        raise AssertionError(f"unexpected URL: {url}")
+
+    adapter = SecEdgarAdapter(
+        registry.get("sec_edgar"),
+        raw_dir=tmp_path / "raw",
+        options={
+            "ciks": ["320193"],
+            "user_agent": "super-bear-dev contact@example.com",
+            "fetch_primary_documents": True,
+            "primary_document_limit": 1,
+            "text_excerpt_chars": 64,
+        },
+        fetch_bytes=fake_fetch,
+    )
+
+    batch = adapter.fetch(limit=1)
+
+    html_path = (
+        tmp_path
+        / "raw"
+        / "sec_edgar"
+        / "0000320193"
+        / "000032019326000010"
+        / "aapl-20260328.htm"
+    )
+    assert batch.ok is True
+    assert len(batch.records) == 2
+    assert html_path.read_bytes() == (
+        b"<html><body><p>Revenue increased year over year.</p></body></html>"
+    )
+    assert str(html_path) in batch.raw_uris
+    first_metadata = batch.records[0]["metadata"]
+    assert first_metadata["primary_document_raw_uri"] == str(html_path)
+    assert first_metadata["primary_document_text_excerpt"] == (
+        "Revenue increased year over year."
+    )
+    assert first_metadata["primary_document_content_hash"].startswith("sha256:")
+    assert "primary_document_raw_uri" not in batch.records[1]["metadata"]
+    assert seen_urls == [
+        "https://data.sec.gov/submissions/CIK0000320193.json",
+        "https://www.sec.gov/Archives/edgar/data/320193/"
+        "000032019326000010/aapl-20260328.htm",
+    ]
+
+
 def test_sec_edgar_adapter_records_http_errors(tmp_path) -> None:
     registry = SourceRegistry.from_yaml("configs/sources.yaml")
 

@@ -16,3 +16,6 @@ source_options:
   sec_edgar:
     ciks:
       - "0000320193"
+    fetch_primary_documents: true
+    primary_document_limit: 1
+    text_excerpt_chars: 500

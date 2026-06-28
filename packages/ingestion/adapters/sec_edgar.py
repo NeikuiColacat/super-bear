@@ -90,6 +90,9 @@ class SecEdgarFetchOptions(BaseModel):
 
     ciks: tuple[str, ...] = ()
     include_forms: tuple[str, ...] = ()
+    fetch_primary_documents: bool = False
+    primary_document_limit: int = Field(default=1, ge=1)
+    text_excerpt_chars: int = Field(default=500, ge=0, le=5000)
     user_agent: str | None = Field(default=None, min_length=1)
     request_timeout_seconds: float = Field(
         default=DEFAULT_REQUEST_TIMEOUT_SECONDS,
@@ -159,6 +162,11 @@ class SecEdgarAdapter(BaseSourceAdapter):
         raw_store = RawStore(self.raw_dir)
         raw_uris: list[str] = []
         records: list[dict[str, JsonValue]] = []
+        primary_documents_remaining = (
+            self.fetch_options.primary_document_limit
+            if self.fetch_options.fetch_primary_documents
+            else 0
+        )
 
         for cik in ciks:
             url = build_submissions_url(cik)
@@ -190,9 +198,24 @@ class SecEdgarAdapter(BaseSourceAdapter):
                     include_forms=include_forms,
                     source_id=self.source.source_id,
                 )
-                records.extend(
-                    document.model_dump(mode="json") for document in documents
-                )
+                for document in documents:
+                    record = document.model_dump(mode="json")
+                    if primary_documents_remaining:
+                        url = str(document.url)
+                        html_content = self._fetch_bytes(
+                            url,
+                            headers,
+                            self.fetch_options.request_timeout_seconds,
+                        )
+                        self._attach_primary_document_artifact(
+                            record=record,
+                            cik=cik,
+                            content=html_content,
+                            raw_store=raw_store,
+                            raw_uris=raw_uris,
+                        )
+                        primary_documents_remaining -= 1
+                    records.append(record)
             except HTTPError as exc:
                 return self._failure(
                     code="http_error",
@@ -234,6 +257,40 @@ class SecEdgarAdapter(BaseSourceAdapter):
             if value:
                 return value
         return None
+
+    def _attach_primary_document_artifact(
+        self,
+        *,
+        record: dict[str, JsonValue],
+        cik: str,
+        content: bytes,
+        raw_store: RawStore,
+        raw_uris: list[str],
+    ) -> None:
+        from packages.ingestion.parsers.sec_filing_html import extract_sec_filing_text
+
+        metadata = record["metadata"]
+        if not isinstance(metadata, dict):
+            raise ValueError("SEC document records must include metadata")
+
+        accession_number = str(metadata["accession_number"])
+        primary_document = str(metadata["primary_document"])
+        result = raw_store.write_bytes(
+            Path(self.source.source_id)
+            / cik
+            / _archive_accession_path(accession_number)
+            / primary_document,
+            content,
+        )
+        raw_uris.append(result.raw_uri)
+        metadata["primary_document_raw_uri"] = result.raw_uri
+        metadata["primary_document_content_hash"] = result.content_hash
+
+        if self.fetch_options.text_excerpt_chars:
+            text = extract_sec_filing_text(content)
+            excerpt = text[: self.fetch_options.text_excerpt_chars].strip()
+            if excerpt:
+                metadata["primary_document_text_excerpt"] = excerpt
 
     def _failure(
         self,

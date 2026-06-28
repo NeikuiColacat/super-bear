@@ -24,6 +24,9 @@ def test_ingestion_run_config_loads_yaml_template() -> None:
     )
     assert config.skip_unimplemented_adapters is True
     assert config.source_options["sec_edgar"]["ciks"] == ["0000320193"]
+    assert config.source_options["sec_edgar"]["fetch_primary_documents"] is True
+    assert config.source_options["sec_edgar"]["primary_document_limit"] == 1
+    assert config.source_options["sec_edgar"]["text_excerpt_chars"] == 500
 
 
 def test_ingestion_run_config_rejects_unsupported_version(tmp_path) -> None:
