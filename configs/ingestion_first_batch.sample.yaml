@@ -3,26 +3,21 @@ source_registry_path: configs/sources.yaml
 raw_dir: data/raw
 normalized_dir: data/normalized
 runs_dir: data/runs
-default_limit: null
+default_limit: 2
 enabled_source_ids:
-  - sec_edgar
   - company_ir
   - yfinance
   - tavily
   - brave_search
   - stock_sentiment
-skip_unimplemented_adapters: true
+skip_unimplemented_adapters: false
+write_chunks: false
+write_candidates: false
 write_ledger: false
 write_events: false
 write_event_cards: false
 write_brief: false
 source_options:
-  sec_edgar:
-    ciks:
-      - "0000320193"
-    fetch_primary_documents: true
-    primary_document_limit: 1
-    text_excerpt_chars: 500
   company_ir:
     issuers:
       - ticker: AAPL

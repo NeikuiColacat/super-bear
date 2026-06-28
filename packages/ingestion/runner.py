@@ -17,7 +17,16 @@ from packages.ingestion.chunker import (
     DEFAULT_CHUNK_OVERLAP_CHARS,
     chunk_document_record,
 )
-from packages.ingestion.adapters import AdapterBatch, BaseSourceAdapter, SecEdgarAdapter
+from packages.ingestion.adapters import (
+    AdapterBatch,
+    BaseSourceAdapter,
+    BraveSearchAdapter,
+    CompanyIrAdapter,
+    SecEdgarAdapter,
+    StockSentimentAdapter,
+    TavilySearchAdapter,
+    YFinanceAdapter,
+)
 from packages.ingestion.cli_preview import (
     CliSourcePreview,
     build_cli_preview,
@@ -36,6 +45,11 @@ from packages.ingestion.run_manifest import (
 
 DEFAULT_ADAPTER_CLASSES: Mapping[str, type[BaseSourceAdapter]] = {
     SecEdgarAdapter.source_id: SecEdgarAdapter,
+    CompanyIrAdapter.source_id: CompanyIrAdapter,
+    YFinanceAdapter.source_id: YFinanceAdapter,
+    TavilySearchAdapter.source_id: TavilySearchAdapter,
+    BraveSearchAdapter.source_id: BraveSearchAdapter,
+    StockSentimentAdapter.source_id: StockSentimentAdapter,
 }
 
 

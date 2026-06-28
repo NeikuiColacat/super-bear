@@ -31,6 +31,11 @@ def test_ingestion_run_config_loads_yaml_template() -> None:
     assert config.source_options["sec_edgar"]["fetch_primary_documents"] is True
     assert config.source_options["sec_edgar"]["primary_document_limit"] == 1
     assert config.source_options["sec_edgar"]["text_excerpt_chars"] == 500
+    assert config.source_options["company_ir"]["issuers"][0]["ticker"] == "AAPL"
+    assert config.source_options["yfinance"]["tickers"] == ["AAPL"]
+    assert config.source_options["tavily"]["queries"]
+    assert config.source_options["brave_search"]["queries"]
+    assert config.source_options["stock_sentiment"]["tickers"] == ["AAPL"]
 
 
 def test_ingestion_run_config_rejects_unsupported_version(tmp_path) -> None:

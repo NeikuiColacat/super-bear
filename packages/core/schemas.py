@@ -27,6 +27,14 @@ from .source_types import (
 )
 
 
+_SOURCE_FAMILY_ID_PATTERN = (
+    r"^(issuer:[0-9]{10}"
+    r"|issuer_ticker:[A-Z][A-Z0-9.-]*"
+    r"|provider:[a-z][a-z0-9_]*"
+    r"|publisher:[a-z][a-z0-9_-]*)$"
+)
+
+
 class DocumentEntity(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -102,6 +110,139 @@ class DocumentChunk(BaseModel):
             raise ValueError("char_end must be greater than char_start")
         if self.char_end - self.char_start != len(self.text):
             raise ValueError("chunk text length must match char range")
+        return self
+
+
+class MarketDataRow(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    timestamp: datetime
+    open: float = Field(ge=0)
+    high: float = Field(ge=0)
+    low: float = Field(ge=0)
+    close: float = Field(ge=0)
+    volume: int = Field(ge=0)
+    dividends: float = Field(default=0, ge=0)
+    stock_splits: float = Field(default=0, ge=0)
+
+    @field_validator("timestamp")
+    @classmethod
+    def _require_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("timestamp must be timezone-aware")
+        return value
+
+
+class MarketContext(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    market_context_id: str = Field(pattern=r"^[a-z0-9][a-z0-9:._/-]*$")
+    source_id: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
+    source_type: SourceType
+    source_tier: SourceTier
+    source_family_id: str = Field(pattern=_SOURCE_FAMILY_ID_PATTERN)
+    ticker: str = Field(pattern=r"^[A-Z][A-Z0-9.-]*$")
+    window_start: datetime
+    window_end: datetime
+    retrieved_at: datetime
+    interval: str = Field(min_length=1)
+    currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
+    rows: tuple[MarketDataRow, ...] = Field(min_length=1)
+    raw_object_uri: str = Field(min_length=1)
+    content_hash: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
+
+    @field_validator("window_start", "window_end", "retrieved_at")
+    @classmethod
+    def _require_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("timestamps must be timezone-aware")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_market_context(self) -> MarketContext:
+        if self.window_end < self.window_start:
+            raise ValueError("window_end must be after window_start")
+        if not is_valid_source_type_tier_pair(self.source_type, self.source_tier):
+            raise ValueError(
+                f"{self.source_tier} is not valid for source_type {self.source_type}"
+            )
+        return self
+
+
+class SearchLead(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    search_lead_id: str = Field(pattern=r"^[a-z0-9][a-z0-9:._/-]*$")
+    source_id: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
+    source_type: SourceType
+    source_tier: SourceTier
+    source_family_id: str = Field(pattern=_SOURCE_FAMILY_ID_PATTERN)
+    query: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    url: HttpUrl
+    snippet: str = Field(min_length=1)
+    published_at: datetime | None = None
+    retrieved_at: datetime
+    score: float | None = None
+    rank: int = Field(ge=1)
+    raw_object_uri: str = Field(min_length=1)
+    content_hash: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
+
+    @field_validator("published_at", "retrieved_at")
+    @classmethod
+    def _require_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return value
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("timestamps must be timezone-aware")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_search_lead(self) -> SearchLead:
+        if not is_valid_source_type_tier_pair(self.source_type, self.source_tier):
+            raise ValueError(
+                f"{self.source_tier} is not valid for source_type {self.source_type}"
+            )
+        return self
+
+
+class AttentionSignal(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    attention_signal_id: str = Field(pattern=r"^[a-z0-9][a-z0-9:._/-]*$")
+    source_id: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
+    source_type: SourceType
+    source_tier: SourceTier
+    source_family_id: str = Field(pattern=_SOURCE_FAMILY_ID_PATTERN)
+    ticker: str = Field(pattern=r"^[A-Z][A-Z0-9.-]*$")
+    signal_family: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
+    window_start: datetime
+    window_end: datetime
+    retrieved_at: datetime
+    metric_name: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
+    metric_value: float
+    sample_size: int | None = Field(default=None, ge=0)
+    raw_object_uri: str = Field(min_length=1)
+    content_hash: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
+
+    @field_validator("window_start", "window_end", "retrieved_at")
+    @classmethod
+    def _require_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("timestamps must be timezone-aware")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_attention_signal(self) -> AttentionSignal:
+        if self.window_end < self.window_start:
+            raise ValueError("window_end must be after window_start")
+        if not is_valid_source_type_tier_pair(self.source_type, self.source_tier):
+            raise ValueError(
+                f"{self.source_tier} is not valid for source_type {self.source_type}"
+            )
         return self
 
 

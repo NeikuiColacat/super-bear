@@ -321,6 +321,9 @@ source_options:
   sec_edgar:
     ciks:
       - "0000320193"
+  tavily:
+    queries:
+      - "AAPL earnings"
 """,
         encoding="utf-8",
     )
@@ -342,9 +345,10 @@ source_options:
     assert "run_id: run_20260628T080000Z" in captured.out
     expected_manifest = tmp_path / "runs" / "run_20260628T080000Z" / "manifest.json"
     assert f"manifest: {expected_manifest}" in captured.out
-    assert (
-        "- tavily: skipped, records_written=0, skipped_reason=adapter_not_implemented"
-    ) in captured.out
+    assert "- tavily: failed, records_written=0, skipped_reason=batch_failed" in (
+        captured.out
+    )
+    assert "error: missing_api_key" in captured.out
 
     payload = json.loads(
         (tmp_path / "runs" / "run_20260628T080000Z" / "manifest.json").read_text(
@@ -352,6 +356,8 @@ source_options:
         )
     )
     assert [source["source_id"] for source in payload["sources"]] == ["tavily"]
+    assert payload["sources"][0]["status"] == "failed"
+    assert payload["sources"][0]["error"]["code"] == "missing_api_key"
 
 
 def test_runner_can_write_document_chunks_as_derived_output(tmp_path) -> None:
