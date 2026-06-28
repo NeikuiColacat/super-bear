@@ -46,7 +46,9 @@ def check_event_evidence(
         raise ValueError("checked_at must be timezone-aware")
 
     event_claim_ids = set(event.claim_ids)
-    provided_claim_ids = {claim.claim_id for claim in claims if claim.claim_id in event_claim_ids}
+    provided_claim_ids = {
+        claim.claim_id for claim in claims if claim.claim_id in event_claim_ids
+    }
     spans_by_claim = _group_current_event_spans(
         event_claim_ids,
         evidence_spans,
@@ -143,7 +145,7 @@ def _result(
     if stale:
         return EvidenceCheckResult(
             event_id=event.event_id,
-            evidence_status=EvidenceStatus.INSUFFICIENT,
+            evidence_status=EvidenceStatus.STALE,
             event_status=event.status,
             checked_claim_ids=event.claim_ids,
             supported_claim_ids=supported,

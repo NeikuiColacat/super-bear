@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any, Iterable
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 import yaml
@@ -36,13 +36,16 @@ class SourceConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _normalize_source_type_fields(cls, data: Any) -> Any:
+    def _normalize_source_type_fields(cls, data: object) -> object:
         if not isinstance(data, dict):
             return data
         normalized = dict(data)
         if "source_type" in normalized and "default_source_type" not in normalized:
             normalized["default_source_type"] = normalized.pop("source_type")
-        if "allowed_source_types" not in normalized and "default_source_type" in normalized:
+        if (
+            "allowed_source_types" not in normalized
+            and "default_source_type" in normalized
+        ):
             normalized["allowed_source_types"] = [normalized["default_source_type"]]
         return normalized
 
@@ -56,7 +59,9 @@ class SourceConfig(BaseModel):
             raise ValueError("derived output kinds cannot be primary source outputs")
 
         if self.default_source_type not in self.allowed_source_types:
-            raise ValueError("default_source_type must be listed in allowed_source_types")
+            raise ValueError(
+                "default_source_type must be listed in allowed_source_types"
+            )
 
         if self.output_kind is OutputKind.DOCUMENT:
             if not all(
@@ -85,7 +90,9 @@ class SourceConfig(BaseModel):
             if self.default_source_type is not SourceType.SOCIAL_SENTIMENT:
                 raise ValueError("attention_signal sources must use social_sentiment")
             if self.source_tier is not SourceTier.ATTENTION_SIGNAL:
-                raise ValueError("attention_signal sources must use attention_signal tier")
+                raise ValueError(
+                    "attention_signal sources must use attention_signal tier"
+                )
 
         if self.requires_api_key and not self.api_key_env:
             raise ValueError("sources requiring an API key must set api_key_env")
@@ -111,7 +118,7 @@ class SourceRegistry(BaseModel):
         return cls.from_items(sources)
 
     @classmethod
-    def from_items(cls, items: Iterable[dict[str, Any]]) -> SourceRegistry:
+    def from_items(cls, items: Iterable[Mapping[str, object]]) -> SourceRegistry:
         sources = tuple(SourceConfig.model_validate(item) for item in items)
         seen: set[str] = set()
         duplicates: set[str] = set()
@@ -134,9 +141,12 @@ class SourceRegistry(BaseModel):
                 return source
         raise KeyError(source_id)
 
-    def enabled_sources(self, output_kind: OutputKind | None = None) -> tuple[SourceConfig, ...]:
+    def enabled_sources(
+        self, output_kind: OutputKind | None = None
+    ) -> tuple[SourceConfig, ...]:
         return tuple(
             source
             for source in self.sources
-            if source.enabled and (output_kind is None or source.output_kind is output_kind)
+            if source.enabled
+            and (output_kind is None or source.output_kind is output_kind)
         )

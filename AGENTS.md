@@ -514,6 +514,53 @@ For every non-trivial request, first ask whether the work can be usefully split 
 
 Keep delegated work concrete and bounded. Use read-only explorer subagents for research, audits, and design comparison. Use worker subagents only when write scopes are disjoint and explicitly assigned. Do not spawn subagents for tiny one-line commands, simple explanations, or tightly coupled edits where coordination would cost more than it saves.
 
+### Codex Operating Protocol
+
+This repository is primarily developed with Codex. Keep the project easy for future agent sessions to inspect, resume, and verify.
+
+Before editing, run `git status --short`. Treat existing modified or untracked files as user-owned unless the task clearly says otherwise. Do not use `git reset`, `git checkout --`, `git clean`, broad formatting, or `git add .`. Stage only files intentionally changed for the current task.
+
+Use commit messages as durable context for future agents:
+
+```text
+<scope>: <imperative summary>
+
+Context:
+- why this change exists
+
+Changes:
+- concrete files or behavior changed
+
+Validation:
+- exact commands run and results
+
+Risks:
+- known gaps, skipped work, or follow-up boundaries
+```
+
+Keep commits single-purpose. Avoid `WIP`, vague bulk commits, and generated-by metadata. Do not mention Codex, subagents, or local tool names unless they are directly relevant to the project behavior being committed.
+
+Treat `examples/harness/*.sample.json`, `examples/harness/README.md`, and `examples/harness/tool_manifest.sample.json` as contract fixtures. When changing harness schemas, tool actions, CLI behavior, or validation rules, update the matching examples and the smoke tests that execute them.
+
+The stable harness/tool contract is `stdin JSON -> stdout JSON`. CLI stdout must be one JSON object with no prose. Harness adapters may accept messy external output such as Markdown-fenced JSON, but the core validator should receive parsed structured data.
+
+Never commit secrets. Config templates may name environment variables such as `SEC_USER_AGENT`, `DEEPSEEK_API_KEY`, `TAVILY_API_KEY`, or `BRAVE_SEARCH_API_KEY`, but do not read, print, or commit `.env`, `keys.env`, API keys, tokens, or local credential files containing values.
+
+For Python changes, run the narrow relevant pytest target first. Before handoff or commit, prefer:
+
+```bash
+uv run ruff check .
+uv run pytest
+```
+
+For harness/tool contract changes, also run:
+
+```bash
+uv run pytest tests/harness/test_examples.py tests/harness/test_cli.py tests/tools/test_tools_cli.py
+```
+
+External harnesses such as Pi, Claude Code, Kilo Code, Langcli, or future agents are replaceable. Do not modify a harness itself to satisfy Super Bear requirements unless there is no adapter-level alternative. Prefer thin adapters that constrain inputs, map approved tool calls, capture raw output, parse result JSON, and refuse ledger updates until Super Bear validation passes.
+
 Before editing:
 
 - Inspect the existing repository structure.

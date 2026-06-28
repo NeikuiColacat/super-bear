@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 import re
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -25,7 +24,7 @@ class ExtractedText(BaseModel):
     source: str = Field(min_length=1)
 
 
-def extract_text_for_chunking(record: Mapping[str, Any]) -> ExtractedText | None:
+def extract_text_for_chunking(record: Mapping[str, object]) -> ExtractedText | None:
     metadata = record.get("metadata")
     if not isinstance(metadata, Mapping):
         metadata = {}
@@ -61,7 +60,7 @@ def extract_text_for_chunking(record: Mapping[str, Any]) -> ExtractedText | None
 
 
 def chunk_document_record(
-    record: Mapping[str, Any],
+    record: Mapping[str, object],
     *,
     max_chars: int = DEFAULT_CHUNK_MAX_CHARS,
     overlap_chars: int = DEFAULT_CHUNK_OVERLAP_CHARS,
@@ -100,7 +99,7 @@ def chunk_text(
     max_chars: int = DEFAULT_CHUNK_MAX_CHARS,
     overlap_chars: int = DEFAULT_CHUNK_OVERLAP_CHARS,
     section_label: str = "body",
-    metadata: Mapping[str, Any] | None = None,
+    metadata: Mapping[str, object] | None = None,
 ) -> tuple[DocumentChunk, ...]:
     if max_chars < 1:
         raise ValueError("max_chars must be at least 1")
@@ -186,7 +185,7 @@ def _trim_trailing_whitespace(text: str, index: int) -> int:
     return index
 
 
-def _text_value(value: Any) -> str:
+def _text_value(value: object) -> str:
     if not isinstance(value, str):
         return ""
     return value.strip()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timezone
 import json
 import os
@@ -11,6 +12,7 @@ from urllib.request import Request, urlopen
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from packages.ingestion.raw_store import RawStore
+from packages.ingestion.registry import SourceConfig
 
 from .base import AdapterBatch, AdapterError, BaseSourceAdapter
 
@@ -105,11 +107,13 @@ class SecEdgarAdapter(BaseSourceAdapter):
 
     def __init__(
         self,
-        *args,
+        source: SourceConfig,
+        *,
+        raw_dir: str | Path | None = None,
+        options: Mapping[str, object] | None = None,
         fetch_bytes: FetchBytes | None = None,
-        **kwargs,
     ) -> None:
-        super().__init__(*args, **kwargs)
+        super().__init__(source, raw_dir=raw_dir, options=options)
         self.fetch_options = SecEdgarFetchOptions.model_validate(self.options)
         self._fetch_bytes = fetch_bytes or fetch_url_bytes
 
@@ -139,8 +143,7 @@ class SecEdgarAdapter(BaseSourceAdapter):
                 error=AdapterError(
                     code="missing_user_agent",
                     message=(
-                        "SEC EDGAR fetch requires SEC_USER_AGENT "
-                        "or user_agent option"
+                        "SEC EDGAR fetch requires SEC_USER_AGENT or user_agent option"
                     ),
                     retryable=False,
                 ),

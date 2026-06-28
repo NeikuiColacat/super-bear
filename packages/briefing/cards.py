@@ -22,7 +22,11 @@ def build_event_cards(
 
     cards: list[EventCard] = []
     for event in events:
-        event_claims = [claims_by_id[claim_id] for claim_id in event.claim_ids if claim_id in claims_by_id]
+        event_claims = [
+            claims_by_id[claim_id]
+            for claim_id in event.claim_ids
+            if claim_id in claims_by_id
+        ]
         event_spans = [
             span
             for claim_id in event.claim_ids

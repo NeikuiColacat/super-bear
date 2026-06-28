@@ -55,7 +55,9 @@ def test_registry_filters_enabled_sources_by_output_kind() -> None:
         "brave_search",
         "stock_sentiment",
     ]
-    assert [source.source_id for source in registry.enabled_sources(OutputKind.DOCUMENT)] == [
+    assert [
+        source.source_id for source in registry.enabled_sources(OutputKind.DOCUMENT)
+    ] == [
         "sec_edgar",
         "company_ir",
     ]

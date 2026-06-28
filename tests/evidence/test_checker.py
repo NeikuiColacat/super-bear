@@ -131,7 +131,7 @@ def test_check_event_evidence_marks_expired_support_temporally_invalid() -> None
         checked_at=_ts(28),
     )
 
-    assert result.evidence_status is EvidenceStatus.INSUFFICIENT
+    assert result.evidence_status is EvidenceStatus.STALE
     assert result.stale_claim_ids == (claim.claim_id,)
     assert result.supported_claim_ids == ()
     assert result.reasons == ("evidence_temporally_invalid",)

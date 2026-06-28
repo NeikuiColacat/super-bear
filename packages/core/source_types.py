@@ -98,6 +98,7 @@ class EvidenceStatus(StrEnum):
     SUFFICIENT = "sufficient"
     INSUFFICIENT = "insufficient"
     CONFLICTING = "conflicting"
+    STALE = "stale"
     ABSTAINED = "abstained"
 
 

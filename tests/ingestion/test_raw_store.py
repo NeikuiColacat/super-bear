@@ -12,7 +12,10 @@ def test_raw_store_writes_bytes_under_root(tmp_path) -> None:
         b'{"cik":"0000320193"}',
     )
 
-    assert result.path == tmp_path / "raw" / "sec_edgar" / "0000320193" / "submissions.json"
+    assert (
+        result.path
+        == tmp_path / "raw" / "sec_edgar" / "0000320193" / "submissions.json"
+    )
     assert result.raw_uri == str(result.path)
     assert result.content_hash == make_content_hash(b'{"cik":"0000320193"}')
     assert result.path.read_bytes() == b'{"cik":"0000320193"}'

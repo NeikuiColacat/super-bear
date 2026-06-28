@@ -7,7 +7,14 @@ from typing import ClassVar
 from collections.abc import Mapping
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    JsonValue,
+    field_validator,
+    model_validator,
+)
 
 from packages.core import OutputKind
 from packages.ingestion.registry import SourceConfig

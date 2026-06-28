@@ -99,8 +99,7 @@ def test_format_cli_preview_prints_source_summary() -> None:
     assert "samples:" in output
     assert "Apple Inc. 10-Q filed 2026-05-01" in output
     assert (
-        "- tavily: skipped, records_written=0, "
-        "skipped_reason=adapter_not_implemented"
+        "- tavily: skipped, records_written=0, skipped_reason=adapter_not_implemented"
     ) in output
 
 

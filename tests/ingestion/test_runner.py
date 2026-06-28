@@ -64,12 +64,7 @@ class InspectingSecAdapter(BaseSourceAdapter):
             retrieved_at=_ts(8, 1),
             records=[],
             raw_uris=[
-                str(
-                    self.raw_dir
-                    / "sec_edgar"
-                    / "0000320193"
-                    / "submissions.json"
-                )
+                str(self.raw_dir / "sec_edgar" / "0000320193" / "submissions.json")
             ],
         )
 
@@ -348,8 +343,7 @@ source_options:
     expected_manifest = tmp_path / "runs" / "run_20260628T080000Z" / "manifest.json"
     assert f"manifest: {expected_manifest}" in captured.out
     assert (
-        "- tavily: skipped, records_written=0, "
-        "skipped_reason=adapter_not_implemented"
+        "- tavily: skipped, records_written=0, skipped_reason=adapter_not_implemented"
     ) in captured.out
 
     payload = json.loads(
@@ -378,13 +372,20 @@ def test_runner_can_write_document_chunks_as_derived_output(tmp_path) -> None:
 
     chunks_path = tmp_path / "normalized" / "document_chunks.jsonl"
     chunk_records = [
-        json.loads(line) for line in chunks_path.read_text(encoding="utf-8").splitlines()
+        json.loads(line)
+        for line in chunks_path.read_text(encoding="utf-8").splitlines()
     ]
 
     assert len(chunk_records) == 1
     assert chunk_records[0]["chunk_id"].endswith(":chunk:000000")
-    assert chunk_records[0]["text"] == "First filing sentence. Net sales increased year over year."
-    assert chunk_records[0]["metadata"]["text_source"] == "metadata.primary_document_raw_uri"
+    assert (
+        chunk_records[0]["text"]
+        == "First filing sentence. Net sales increased year over year."
+    )
+    assert (
+        chunk_records[0]["metadata"]["text_source"]
+        == "metadata.primary_document_raw_uri"
+    )
 
     derived = result.manifest.sources[0].derived_outputs[0]
     assert derived.output_kind is OutputKind.DOCUMENT_CHUNK
@@ -413,27 +414,41 @@ def test_runner_overwrites_normalized_outputs_for_each_run(tmp_path) -> None:
     run_ingestion(run_id="run_20260628T080000Z", **kwargs)
     run_ingestion(run_id="run_20260628T080100Z", **kwargs)
 
-    documents = (tmp_path / "normalized" / "documents.jsonl").read_text(
-        encoding="utf-8"
-    ).splitlines()
-    chunks = (tmp_path / "normalized" / "document_chunks.jsonl").read_text(
-        encoding="utf-8"
-    ).splitlines()
+    documents = (
+        (tmp_path / "normalized" / "documents.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    chunks = (
+        (tmp_path / "normalized" / "document_chunks.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
     claim_candidates = (
-        tmp_path / "normalized" / "claim_candidates.jsonl"
-    ).read_text(encoding="utf-8").splitlines()
+        (tmp_path / "normalized" / "claim_candidates.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
     evidence_candidates = (
-        tmp_path / "normalized" / "evidence_span_candidates.jsonl"
-    ).read_text(encoding="utf-8").splitlines()
-    claims = (tmp_path / "normalized" / "claims.jsonl").read_text(
-        encoding="utf-8"
-    ).splitlines()
-    evidence_spans = (tmp_path / "normalized" / "evidence_spans.jsonl").read_text(
-        encoding="utf-8"
-    ).splitlines()
-    events = (tmp_path / "normalized" / "events.jsonl").read_text(
-        encoding="utf-8"
-    ).splitlines()
+        (tmp_path / "normalized" / "evidence_span_candidates.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    claims = (
+        (tmp_path / "normalized" / "claims.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    evidence_spans = (
+        (tmp_path / "normalized" / "evidence_spans.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    events = (
+        (tmp_path / "normalized" / "events.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
 
     assert len(documents) == 1
     assert len(chunks) == 1
@@ -537,8 +552,7 @@ def test_runner_can_write_claim_and_evidence_candidates(tmp_path) -> None:
     assert evidence_spans[0]["text"] == claims[0]["claim_text"]
     assert evidence_spans[0]["claim_candidate_id"] == claims[0]["claim_candidate_id"]
     assert {
-        output.output_kind
-        for output in result.manifest.sources[0].derived_outputs
+        output.output_kind for output in result.manifest.sources[0].derived_outputs
     } == {
         OutputKind.DOCUMENT_CHUNK,
         OutputKind.CLAIM_CANDIDATE,
@@ -578,8 +592,7 @@ def test_runner_can_write_pre_event_ledger(tmp_path) -> None:
     assert claims[0]["claim_id"].endswith(":claim:000000")
     assert evidence_spans[0]["claim_id"] == claims[0]["claim_id"]
     assert {
-        output.output_kind
-        for output in result.manifest.sources[0].derived_outputs
+        output.output_kind for output in result.manifest.sources[0].derived_outputs
     } == {
         OutputKind.DOCUMENT_CHUNK,
         OutputKind.CLAIM_CANDIDATE,
@@ -608,7 +621,8 @@ def test_runner_can_write_events(tmp_path) -> None:
 
     events_path = tmp_path / "normalized" / "events.jsonl"
     events = [
-        json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()
+        json.loads(line)
+        for line in events_path.read_text(encoding="utf-8").splitlines()
     ]
 
     assert len(events) == 1
@@ -617,8 +631,7 @@ def test_runner_can_write_events(tmp_path) -> None:
     assert events[0]["related_doc_ids"]
     assert events[0]["claim_ids"]
     assert {
-        output.output_kind
-        for output in result.manifest.sources[0].derived_outputs
+        output.output_kind for output in result.manifest.sources[0].derived_outputs
     } == {
         OutputKind.DOCUMENT_CHUNK,
         OutputKind.CLAIM_CANDIDATE,
@@ -663,6 +676,5 @@ def test_runner_can_write_event_cards_and_brief(tmp_path) -> None:
     assert briefs[0]["event_card_ids"] == [cards[0]["event_card_id"]]
     assert cards[0]["key_claim_ids"][0] in briefs[0]["markdown"]
     assert {
-        output.output_kind
-        for output in result.manifest.sources[0].derived_outputs
+        output.output_kind for output in result.manifest.sources[0].derived_outputs
     } >= {OutputKind.EVENT, OutputKind.EVENT_CARD, OutputKind.BRIEFING}

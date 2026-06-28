@@ -1,0 +1,49 @@
+{
+  "request": {
+    "schema_version": "investigator.v0",
+    "investigator_run_id": "investigator_run_20260629T000000Z_pi_smoke",
+    "harness_name": "pi",
+    "harness_version": "0.80.2",
+    "adapter_version": "super_bear_cli_v0",
+    "model_name": "deepseek-v4-flash",
+    "prompt_version": "pi_smoke_v0",
+    "task_type": "verify_evidence_gap",
+    "budgets": {
+      "query_budget": 0,
+      "read_budget": 1,
+      "token_budget": 8000,
+      "latency_budget_ms": 60000
+    },
+    "allowed_actions": [
+      "READ_DOCUMENT",
+      "VERIFY_EVIDENCE",
+      "STOP",
+      "ABSTAIN"
+    ],
+    "event_pack": {
+      "event": {
+        "event_id": "event:issuer:0000320193:sec:2026_q2_10q",
+        "canonical_title": "Apple filed a quarterly 10-Q for the period ended March 28, 2026"
+      },
+      "claims": [
+        {
+          "claim_id": "sec:0000320193:0000320193-26-000013:aapl-20260328.htm:claim:000000",
+          "claim_text": "Apple filed a Form 10-Q on 2026-05-01 for the quarterly period ended 2026-03-28.",
+          "mandatory": true
+        }
+      ],
+      "evidence_spans": [
+        {
+          "span_id": "sec:0000320193:0000320193-26-000013:aapl-20260328.htm:span:000000",
+          "claim_id": "sec:0000320193:0000320193-26-000013:aapl-20260328.htm:claim:000000",
+          "text": "FORM 10-Q ... For the quarterly period ended March 28, 2026 ... Apple Inc."
+        }
+      ],
+      "chunks": [],
+      "open_questions": [
+        "Decide whether the existing evidence is enough to support the mandatory claim."
+      ]
+    }
+  },
+  "result_text": "```json\n{\n  \"schema_version\": \"investigator_result.v0\",\n  \"investigator_run_id\": \"investigator_run_20260629T000000Z_pi_smoke\",\n  \"status\": \"stop\",\n  \"evidence_status\": \"sufficient\",\n  \"new_claim_candidates\": [],\n  \"new_evidence_span_candidates\": [],\n  \"conflicts\": [],\n  \"abstain_reason\": null,\n  \"tool_calls\": [\n    {\n      \"action\": \"READ_DOCUMENT\",\n      \"input\": {\n        \"doc_id\": \"sec:0000320193:0000320193-26-000013:aapl-20260328.htm\"\n      },\n      \"output_ref\": \"examples/harness/investigator_request.sample.json\"\n    },\n    {\n      \"action\": \"VERIFY_EVIDENCE\",\n      \"input\": {\n        \"claim_id\": \"sec:0000320193:0000320193-26-000013:aapl-20260328.htm:claim:000000\",\n        \"evidence_span_id\": \"sec:0000320193:0000320193-26-000013:aapl-20260328.htm:span:000000\"\n      },\n      \"output_ref\": \"citation:000000\"\n    }\n  ],\n  \"citations\": [\n    {\n      \"claim_id\": \"sec:0000320193:0000320193-26-000013:aapl-20260328.htm:claim:000000\",\n      \"evidence_span_id\": \"sec:0000320193:0000320193-26-000013:aapl-20260328.htm:span:000000\"\n    }\n  ]\n}\n```"
+}

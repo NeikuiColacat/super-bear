@@ -231,9 +231,7 @@ def run_ingestion(
                         claims=ledger.claims,
                         evidence_spans=ledger.evidence_spans,
                     )
-                    event_records = [
-                        event.model_dump(mode="json") for event in events
-                    ]
+                    event_records = [event.model_dump(mode="json") for event in events]
                     event_batch = AdapterBatch.success(
                         source_id=batch.source_id,
                         output_kind=OutputKind.EVENT,
@@ -260,9 +258,7 @@ def run_ingestion(
                             evidence_spans=ledger.evidence_spans,
                             created_at=batch.retrieved_at,
                         )
-                        card_records = [
-                            card.model_dump(mode="json") for card in cards
-                        ]
+                        card_records = [card.model_dump(mode="json") for card in cards]
                         card_batch = AdapterBatch.success(
                             source_id=batch.source_id,
                             output_kind=OutputKind.EVENT_CARD,
@@ -380,9 +376,8 @@ def _clear_output_files(
     write_brief: bool,
 ) -> None:
     if (
-        (write_chunks or write_candidates or write_ledger)
-        and OutputKind.DOCUMENT in output_kinds
-    ):
+        write_chunks or write_candidates or write_ledger
+    ) and OutputKind.DOCUMENT in output_kinds:
         output_kinds.add(OutputKind.DOCUMENT_CHUNK)
     if (write_candidates or write_ledger) and OutputKind.DOCUMENT in output_kinds:
         output_kinds.update(

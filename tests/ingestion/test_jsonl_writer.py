@@ -29,8 +29,7 @@ def test_jsonl_writer_maps_output_kinds_to_normalized_files(tmp_path) -> None:
     assert writer.output_path_for(OutputKind.CLAIM) == tmp_path / "claims.jsonl"
     assert writer.output_path_for(OutputKind.EVENT) == tmp_path / "events.jsonl"
     assert (
-        writer.output_path_for(OutputKind.EVENT_CARD)
-        == tmp_path / "event_cards.jsonl"
+        writer.output_path_for(OutputKind.EVENT_CARD) == tmp_path / "event_cards.jsonl"
     )
     assert writer.output_path_for(OutputKind.BRIEFING) == tmp_path / "briefings.jsonl"
     assert (
@@ -45,14 +44,19 @@ def test_jsonl_writer_maps_output_kinds_to_normalized_files(tmp_path) -> None:
         writer.output_path_for(OutputKind.MARKET_CONTEXT)
         == tmp_path / "market_context.jsonl"
     )
-    assert writer.output_path_for(OutputKind.SEARCH_LEAD) == tmp_path / "search_leads.jsonl"
+    assert (
+        writer.output_path_for(OutputKind.SEARCH_LEAD)
+        == tmp_path / "search_leads.jsonl"
+    )
     assert (
         writer.output_path_for(OutputKind.ATTENTION_SIGNAL)
         == tmp_path / "attention_signals.jsonl"
     )
 
 
-def test_jsonl_writer_writes_successful_records_as_one_json_object_per_line(tmp_path) -> None:
+def test_jsonl_writer_writes_successful_records_as_one_json_object_per_line(
+    tmp_path,
+) -> None:
     writer = JsonlWriter(tmp_path)
     batch = AdapterBatch.success(
         source_id="sec_edgar",

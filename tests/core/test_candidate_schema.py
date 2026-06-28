@@ -46,7 +46,9 @@ def test_claim_allows_pre_event_ledger_entry() -> None:
 
     assert claim.event_id is None
     assert claim.status is ClaimStatus.SUPPORTED
-    assert claim.metadata["source_candidate_id"] == "sec:apple:10q:claim_candidate:000000"
+    assert (
+        claim.metadata["source_candidate_id"] == "sec:apple:10q:claim_candidate:000000"
+    )
 
 
 def test_evidence_span_candidate_keeps_absolute_document_offsets() -> None:

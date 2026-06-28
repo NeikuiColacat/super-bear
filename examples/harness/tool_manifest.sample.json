@@ -1,0 +1,52 @@
+{
+  "schema_version": "super_bear_tools.v0",
+  "transport": "stdin_json_stdout_json",
+  "entrypoint": "uv run python -m packages.tools.cli",
+  "tools": [
+    {
+      "action": "read_document",
+      "arguments": {
+        "doc_id": "string"
+      }
+    },
+    {
+      "action": "list_chunks",
+      "arguments": {
+        "doc_id": "string"
+      }
+    },
+    {
+      "action": "get_event",
+      "arguments": {
+        "event_id": "string"
+      }
+    },
+    {
+      "action": "get_claim",
+      "arguments": {
+        "claim_id": "string"
+      }
+    },
+    {
+      "action": "get_evidence_span",
+      "arguments": {
+        "span_id": "string"
+      }
+    },
+    {
+      "action": "get_event_pack",
+      "arguments": {
+        "event_id": "string"
+      }
+    },
+    {
+      "action": "validate_evidence_span",
+      "arguments": {
+        "doc_id": "string",
+        "text": "string",
+        "char_start": "integer",
+        "char_end": "integer"
+      }
+    }
+  ]
+}

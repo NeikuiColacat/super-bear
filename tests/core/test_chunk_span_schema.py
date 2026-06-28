@@ -57,7 +57,9 @@ def test_document_chunk_records_stable_text_coordinates() -> None:
 
 
 def test_document_chunk_rejects_empty_or_reversed_ranges() -> None:
-    with pytest.raises(ValidationError, match="char_end must be greater than char_start"):
+    with pytest.raises(
+        ValidationError, match="char_end must be greater than char_start"
+    ):
         DocumentChunk(
             chunk_id="sec:test:chunk:000000",
             doc_id="sec:test",

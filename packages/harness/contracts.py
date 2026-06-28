@@ -78,6 +78,10 @@ class InvestigatorRequest(BaseModel):
     schema_version: Literal["investigator.v0"]
     investigator_run_id: str = Field(min_length=1)
     harness_name: str = Field(min_length=1)
+    harness_version: str | None = Field(default=None, min_length=1)
+    adapter_version: str | None = Field(default=None, min_length=1)
+    model_name: str | None = Field(default=None, min_length=1)
+    prompt_version: str | None = Field(default=None, min_length=1)
     task_type: str = Field(min_length=1)
     budgets: Budget
     allowed_actions: tuple[AllowedAction, ...]

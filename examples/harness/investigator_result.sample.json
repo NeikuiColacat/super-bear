@@ -1,0 +1,33 @@
+{
+  "schema_version": "investigator_result.v0",
+  "investigator_run_id": "investigator_run_20260629T000000Z_pi_smoke",
+  "status": "stop",
+  "evidence_status": "sufficient",
+  "new_claim_candidates": [],
+  "new_evidence_span_candidates": [],
+  "conflicts": [],
+  "abstain_reason": null,
+  "tool_calls": [
+    {
+      "action": "READ_DOCUMENT",
+      "input": {
+        "doc_id": "sec:0000320193:0000320193-26-000013:aapl-20260328.htm"
+      },
+      "output_ref": "examples/harness/investigator_request.sample.json"
+    },
+    {
+      "action": "VERIFY_EVIDENCE",
+      "input": {
+        "claim_id": "sec:0000320193:0000320193-26-000013:aapl-20260328.htm:claim:000000",
+        "evidence_span_id": "sec:0000320193:0000320193-26-000013:aapl-20260328.htm:span:000000"
+      },
+      "output_ref": "citation:000000"
+    }
+  ],
+  "citations": [
+    {
+      "claim_id": "sec:0000320193:0000320193-26-000013:aapl-20260328.htm:claim:000000",
+      "evidence_span_id": "sec:0000320193:0000320193-26-000013:aapl-20260328.htm:span:000000"
+    }
+  ]
+}

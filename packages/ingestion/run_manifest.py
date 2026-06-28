@@ -74,7 +74,9 @@ class RunSourceResult(BaseModel):
             records_seen=batch.records_seen,
             records_written=write_result.records_written,
             raw_uris=batch.raw_uris,
-            output_path=str(write_result.output_path) if write_result.output_path else None,
+            output_path=str(write_result.output_path)
+            if write_result.output_path
+            else None,
             derived_outputs=derived_outputs,
             error=batch.error,
             skipped_reason=write_result.skipped_reason,

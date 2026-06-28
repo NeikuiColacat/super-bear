@@ -17,7 +17,9 @@ def test_sources_yaml_registers_first_batch_sources() -> None:
         "stock_sentiment",
     }.issubset(source_ids)
 
-    sec = next(source for source in config["sources"] if source["source_id"] == "sec_edgar")
+    sec = next(
+        source for source in config["sources"] if source["source_id"] == "sec_edgar"
+    )
     assert sec["output_kind"] == "document"
     assert sec["default_source_type"] == "sec_filing"
     assert sec["allowed_source_types"] == ["sec_filing", "sec_exhibit"]
@@ -33,7 +35,9 @@ def test_sources_yaml_registers_first_batch_sources() -> None:
         "company_earnings_release",
     ]
 
-    tavily = next(source for source in config["sources"] if source["source_id"] == "tavily")
+    tavily = next(
+        source for source in config["sources"] if source["source_id"] == "tavily"
+    )
     assert tavily["output_kind"] == "search_lead"
     assert tavily["api_key_env"] == "TAVILY_API_KEY"
 

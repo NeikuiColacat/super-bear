@@ -15,6 +15,10 @@ def test_investigator_contract_accepts_bounded_event_pack() -> None:
         schema_version="investigator.v0",
         investigator_run_id="investigator_run_20260628T080100Z",
         harness_name="pi",
+        harness_version="0.0.test",
+        adapter_version="super_bear_cli_v0",
+        model_name="fake-pi",
+        prompt_version="test_prompt_v0",
         task_type="verify_evidence_gap",
         budgets=Budget(
             query_budget=3,
@@ -33,6 +37,7 @@ def test_investigator_contract_accepts_bounded_event_pack() -> None:
     )
 
     assert request.harness_name == "pi"
+    assert request.harness_version == "0.0.test"
     assert request.allowed_actions == (
         AllowedAction.READ_DOCUMENT,
         AllowedAction.STOP,

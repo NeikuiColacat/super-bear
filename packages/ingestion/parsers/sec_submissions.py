@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
-from typing import Any
 
 from packages.core import (
     Document,
@@ -140,33 +139,35 @@ def _parse_sec_datetime(value: str, *, fallback_date: str) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
-def _recent_text(recent: dict[str, Any], field: str, index: int) -> str:
+def _recent_text(recent: dict[str, object], field: str, index: int) -> str:
     value = _recent_value(recent, field, index)
     return "" if value is None else str(value).strip()
 
 
-def _recent_int(recent: dict[str, Any], field: str, index: int) -> int | None:
+def _recent_int(recent: dict[str, object], field: str, index: int) -> int | None:
     value = _recent_value(recent, field, index)
     if value in (None, ""):
         return None
     return int(value)
 
 
-def _recent_bool(recent: dict[str, Any], field: str, index: int) -> bool | None:
+def _recent_bool(recent: dict[str, object], field: str, index: int) -> bool | None:
     value = _recent_value(recent, field, index)
     if value in (None, ""):
         return None
     return bool(int(value))
 
 
-def _recent_value(recent: dict[str, Any], field: str, index: int) -> Any:
-    values = recent.get(field) or []
+def _recent_value(recent: dict[str, object], field: str, index: int) -> object | None:
+    values = recent.get(field)
+    if not isinstance(values, list):
+        return None
     if index >= len(values):
         return None
     return values[index]
 
 
-def _first_text(values: Any) -> str:
+def _first_text(values: object) -> str:
     if not isinstance(values, list) or not values:
         return ""
     return str(values[0]).strip().upper()
