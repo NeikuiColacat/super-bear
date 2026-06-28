@@ -52,7 +52,7 @@ def extract_candidate_pairs(
                 claim_text=sentence,
                 claim_type=ClaimType.FACT,
                 confidence=0.3,
-                metadata={"extractor": "rule_stub_v0.1"},
+                metadata=_candidate_metadata(chunk),
             )
             evidence = EvidenceSpanCandidate(
                 span_candidate_id=span_id,
@@ -68,7 +68,7 @@ def extract_candidate_pairs(
                 source_family_id=_metadata_required(chunk, "source_family_id"),
                 published_at=_parse_datetime(_metadata_required(chunk, "published_at")),
                 confidence=0.3,
-                metadata={"extractor": "rule_stub_v0.1"},
+                metadata=_candidate_metadata(chunk),
             )
             pairs.append((claim, evidence))
     return tuple(pairs)
@@ -93,6 +93,14 @@ def _metadata_required(chunk: DocumentChunk, key: str) -> str:
     if not isinstance(value, str) or not value:
         raise ValueError(f"chunk metadata missing {key}")
     return value
+
+
+def _candidate_metadata(chunk: DocumentChunk) -> dict[str, str]:
+    metadata = {"extractor": "rule_stub_v0.1"}
+    form = chunk.metadata.get("form")
+    if isinstance(form, str) and form:
+        metadata["form"] = form
+    return metadata
 
 
 def _parse_datetime(value: str) -> datetime:

@@ -405,7 +405,7 @@ def test_runner_overwrites_normalized_outputs_for_each_run(tmp_path) -> None:
         "runs_dir": tmp_path / "runs",
         "adapter_classes": {"sec_edgar": ChunkingSecAdapter},
         "source_ids": ("sec_edgar",),
-        "write_ledger": True,
+        "write_events": True,
         "started_at": _ts(8, 0),
         "finished_at": _ts(8, 2),
     }
@@ -431,6 +431,9 @@ def test_runner_overwrites_normalized_outputs_for_each_run(tmp_path) -> None:
     evidence_spans = (tmp_path / "normalized" / "evidence_spans.jsonl").read_text(
         encoding="utf-8"
     ).splitlines()
+    events = (tmp_path / "normalized" / "events.jsonl").read_text(
+        encoding="utf-8"
+    ).splitlines()
 
     assert len(documents) == 1
     assert len(chunks) == 1
@@ -438,6 +441,7 @@ def test_runner_overwrites_normalized_outputs_for_each_run(tmp_path) -> None:
     assert len(evidence_candidates) == 1
     assert len(claims) == 1
     assert len(evidence_spans) == 1
+    assert len(events) == 1
 
 
 def test_runner_clears_stale_ledger_outputs_when_ledger_is_disabled(tmp_path) -> None:
@@ -455,7 +459,7 @@ def test_runner_clears_stale_ledger_outputs_when_ledger_is_disabled(tmp_path) ->
 
     run_ingestion(
         run_id="run_20260628T080000Z",
-        write_ledger=True,
+        write_events=True,
         **kwargs,
     )
     run_ingestion(
@@ -467,6 +471,38 @@ def test_runner_clears_stale_ledger_outputs_when_ledger_is_disabled(tmp_path) ->
     assert not (tmp_path / "normalized" / "claims.jsonl").exists()
     assert not (tmp_path / "normalized" / "evidence_spans.jsonl").exists()
     assert not (tmp_path / "normalized" / "validation_errors.jsonl").exists()
+    assert not (tmp_path / "normalized" / "events.jsonl").exists()
+
+
+def test_runner_clears_stale_events_when_running_non_document_source(tmp_path) -> None:
+    registry = SourceRegistry.from_yaml("configs/sources.yaml")
+
+    run_ingestion(
+        registry=registry,
+        normalized_dir=tmp_path / "normalized",
+        raw_dir=tmp_path / "raw",
+        runs_dir=tmp_path / "runs",
+        run_id="run_20260628T080000Z",
+        adapter_classes={"sec_edgar": ChunkingSecAdapter},
+        source_ids=("sec_edgar",),
+        write_events=True,
+        started_at=_ts(8, 0),
+        finished_at=_ts(8, 2),
+    )
+    run_ingestion(
+        registry=registry,
+        normalized_dir=tmp_path / "normalized",
+        raw_dir=tmp_path / "raw",
+        runs_dir=tmp_path / "runs",
+        run_id="run_20260628T080100Z",
+        adapter_classes={"sec_edgar": ChunkingSecAdapter},
+        source_ids=("tavily",),
+        write_events=False,
+        started_at=_ts(8, 0),
+        finished_at=_ts(8, 2),
+    )
+
+    assert not (tmp_path / "normalized" / "events.jsonl").exists()
 
 
 def test_runner_can_write_claim_and_evidence_candidates(tmp_path) -> None:
@@ -551,4 +587,44 @@ def test_runner_can_write_pre_event_ledger(tmp_path) -> None:
         OutputKind.CLAIM,
         OutputKind.EVIDENCE_SPAN,
         OutputKind.VALIDATION_ERROR,
+    }
+
+
+def test_runner_can_write_events(tmp_path) -> None:
+    registry = SourceRegistry.from_yaml("configs/sources.yaml")
+
+    result = run_ingestion(
+        registry=registry,
+        normalized_dir=tmp_path / "normalized",
+        raw_dir=tmp_path / "raw",
+        runs_dir=tmp_path / "runs",
+        run_id="run_20260628T080000Z",
+        adapter_classes={"sec_edgar": ChunkingSecAdapter},
+        source_ids=("sec_edgar",),
+        write_events=True,
+        started_at=_ts(8, 0),
+        finished_at=_ts(8, 2),
+    )
+
+    events_path = tmp_path / "normalized" / "events.jsonl"
+    events = [
+        json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()
+    ]
+
+    assert len(events) == 1
+    assert events[0]["event_type"] == "sec_filing"
+    assert events[0]["assembly_key"] == "issuer:0000320193|sec_filing|10-Q|20260628"
+    assert events[0]["related_doc_ids"]
+    assert events[0]["claim_ids"]
+    assert {
+        output.output_kind
+        for output in result.manifest.sources[0].derived_outputs
+    } == {
+        OutputKind.DOCUMENT_CHUNK,
+        OutputKind.CLAIM_CANDIDATE,
+        OutputKind.EVIDENCE_SPAN_CANDIDATE,
+        OutputKind.CLAIM,
+        OutputKind.EVIDENCE_SPAN,
+        OutputKind.VALIDATION_ERROR,
+        OutputKind.EVENT,
     }

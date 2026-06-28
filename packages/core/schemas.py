@@ -17,6 +17,9 @@ from .source_types import (
     ClaimType,
     EntityKind,
     EvidenceRelation,
+    EvidenceStatus,
+    EventStatus,
+    EventType,
     SourceTier,
     SourceType,
     is_document_source_type,
@@ -232,6 +235,37 @@ class EvidenceSpan(BaseModel):
             )
         if self.valid_from and self.valid_to and self.valid_to < self.valid_from:
             raise ValueError("valid_to must be after valid_from")
+        return self
+
+
+class Event(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    event_id: str = Field(pattern=r"^event:[a-z0-9][a-z0-9:._/-]*$")
+    canonical_title: str = Field(min_length=1)
+    event_type: EventType
+    entities: tuple[DocumentEntity, ...] = ()
+    event_time: datetime
+    status: EventStatus
+    related_doc_ids: tuple[str, ...] = Field(min_length=1)
+    claim_ids: tuple[str, ...] = Field(min_length=1)
+    evidence_status: EvidenceStatus
+    assembly_key: str = Field(min_length=1)
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
+
+    @field_validator("event_time")
+    @classmethod
+    def _require_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("event_time must be timezone-aware")
+        return value
+
+    @model_validator(mode="after")
+    def _require_unique_members(self) -> Event:
+        if len(set(self.claim_ids)) != len(self.claim_ids):
+            raise ValueError("claim_ids must be unique")
+        if len(set(self.related_doc_ids)) != len(self.related_doc_ids):
+            raise ValueError("related_doc_ids must be unique")
         return self
 
 

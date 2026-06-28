@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict
 
 from packages.core import DocumentChunk, OutputKind
 from packages.evidence import build_pre_event_ledger
+from packages.events import assemble_events
 from packages.extraction import extract_candidate_pairs
 from packages.ingestion.chunker import (
     DEFAULT_CHUNK_MAX_CHARS,
@@ -61,6 +62,7 @@ def run_ingestion(
     write_chunks: bool = False,
     write_candidates: bool = False,
     write_ledger: bool = False,
+    write_events: bool = False,
     chunk_max_chars: int = DEFAULT_CHUNK_MAX_CHARS,
     chunk_overlap_chars: int = DEFAULT_CHUNK_OVERLAP_CHARS,
     started_at: datetime | None = None,
@@ -69,6 +71,7 @@ def run_ingestion(
     adapters = adapter_classes or DEFAULT_ADAPTER_CLASSES
     writer = JsonlWriter(normalized_dir)
     adapter_options = source_options or {}
+    effective_write_ledger = write_ledger or write_events
 
     actual_started_at = started_at or datetime.now(timezone.utc)
     source_results: list[RunSourceResult] = []
@@ -86,7 +89,8 @@ def run_ingestion(
             output_kinds={source.output_kind for source in enabled_sources},
             write_chunks=write_chunks,
             write_candidates=write_candidates,
-            write_ledger=write_ledger,
+            write_ledger=effective_write_ledger,
+            write_events=write_events,
         )
 
     for source in enabled_sources:
@@ -114,7 +118,7 @@ def run_ingestion(
         derived_outputs: list[RunDerivedOutput] = []
         chunk_records: list[dict] = []
         if (
-            (write_chunks or write_candidates or write_ledger)
+            (write_chunks or write_candidates or effective_write_ledger)
             and batch.ok
             and batch.output_kind is OutputKind.DOCUMENT
         ):
@@ -144,7 +148,7 @@ def run_ingestion(
             )
             claim_records: list[dict] = []
             evidence_records: list[dict] = []
-            if write_candidates or write_ledger:
+            if write_candidates or effective_write_ledger:
                 claim_records, evidence_records = _build_candidate_records(
                     chunk_records
                 )
@@ -171,7 +175,7 @@ def run_ingestion(
                             skipped_reason=candidate_write_result.skipped_reason,
                         )
                     )
-            if write_ledger:
+            if effective_write_ledger:
                 ledger = build_pre_event_ledger(
                     claim_records=claim_records,
                     evidence_records=evidence_records,
@@ -214,6 +218,33 @@ def run_ingestion(
                             ),
                             records_written=ledger_write_result.records_written,
                             skipped_reason=ledger_write_result.skipped_reason,
+                        )
+                    )
+                if write_events:
+                    event_records = [
+                        event.model_dump(mode="json")
+                        for event in assemble_events(
+                            claims=ledger.claims,
+                            evidence_spans=ledger.evidence_spans,
+                        )
+                    ]
+                    event_batch = AdapterBatch.success(
+                        source_id=batch.source_id,
+                        output_kind=OutputKind.EVENT,
+                        retrieved_at=batch.retrieved_at,
+                        records=event_records,
+                    )
+                    event_write_result = writer.write_batch(event_batch)
+                    derived_outputs.append(
+                        RunDerivedOutput(
+                            output_kind=event_write_result.output_kind,
+                            output_path=(
+                                str(event_write_result.output_path)
+                                if event_write_result.output_path
+                                else None
+                            ),
+                            records_written=event_write_result.records_written,
+                            skipped_reason=event_write_result.skipped_reason,
                         )
                     )
         source_result = RunSourceResult.from_batch(
@@ -285,6 +316,7 @@ def _clear_output_files(
     write_chunks: bool,
     write_candidates: bool,
     write_ledger: bool,
+    write_events: bool,
 ) -> None:
     if (
         (write_chunks or write_candidates or write_ledger)
@@ -306,6 +338,8 @@ def _clear_output_files(
                 OutputKind.VALIDATION_ERROR,
             }
         )
+    if write_events and OutputKind.DOCUMENT in output_kinds:
+        output_kinds.add(OutputKind.EVENT)
     if OutputKind.DOCUMENT in output_kinds:
         output_kinds.update(
             {
@@ -314,6 +348,19 @@ def _clear_output_files(
                 OutputKind.EVIDENCE_SPAN_CANDIDATE,
                 OutputKind.CLAIM,
                 OutputKind.EVIDENCE_SPAN,
+                OutputKind.EVENT,
+                OutputKind.VALIDATION_ERROR,
+            }
+        )
+    else:
+        output_kinds.update(
+            {
+                OutputKind.DOCUMENT_CHUNK,
+                OutputKind.CLAIM_CANDIDATE,
+                OutputKind.EVIDENCE_SPAN_CANDIDATE,
+                OutputKind.CLAIM,
+                OutputKind.EVIDENCE_SPAN,
+                OutputKind.EVENT,
                 OutputKind.VALIDATION_ERROR,
             }
         )
@@ -362,6 +409,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Also validate candidates and write the pre-event evidence ledger.",
     )
+    parser.add_argument(
+        "--write-events",
+        action="store_true",
+        help="Also assemble pre-event ledger records into events. Implies --write-ledger.",
+    )
     return parser
 
 
@@ -393,6 +445,7 @@ def main(argv: list[str] | None = None) -> int:
         write_chunks=args.write_chunks or config.write_chunks,
         write_candidates=args.write_candidates or config.write_candidates,
         write_ledger=args.write_ledger or config.write_ledger,
+        write_events=args.write_events or config.write_events,
         chunk_max_chars=config.chunk_max_chars,
         chunk_overlap_chars=config.chunk_overlap_chars,
     )

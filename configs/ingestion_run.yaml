@@ -13,6 +13,7 @@ enabled_source_ids:
   - stock_sentiment
 skip_unimplemented_adapters: true
 write_ledger: false
+write_events: false
 source_options:
   sec_edgar:
     ciks:

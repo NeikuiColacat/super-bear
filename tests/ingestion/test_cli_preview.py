@@ -130,6 +130,11 @@ def test_cli_preview_summarizes_derived_document_chunks() -> None:
                 records_written=1,
             ),
             RunDerivedOutput(
+                output_kind=OutputKind.EVENT,
+                output_path="data/normalized/events.jsonl",
+                records_written=1,
+            ),
+            RunDerivedOutput(
                 output_kind=OutputKind.VALIDATION_ERROR,
                 output_path="data/normalized/validation_errors.jsonl",
                 records_written=0,
@@ -168,6 +173,7 @@ def test_cli_preview_summarizes_derived_document_chunks() -> None:
     assert "document_chunk: records_written=2" in output
     assert "claim: records_written=1" in output
     assert "evidence_span: records_written=1" in output
+    assert "event: records_written=1" in output
     assert "validation_error: records_written=0, skipped_reason=no_records" in output
     assert "chunk samples:" in output
     assert "Apple reported quarterly results." in output

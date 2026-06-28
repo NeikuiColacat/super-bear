@@ -8,6 +8,7 @@ class OutputKind(StrEnum):
     EVIDENCE_SPAN_CANDIDATE = "evidence_span_candidate"
     CLAIM = "claim"
     EVIDENCE_SPAN = "evidence_span"
+    EVENT = "event"
     VALIDATION_ERROR = "validation_error"
     MARKET_CONTEXT = "market_context"
     SEARCH_LEAD = "search_lead"
@@ -70,6 +71,33 @@ class ClaimStatus(StrEnum):
     OBSOLETE = "obsolete"
 
 
+class EventType(StrEnum):
+    EARNINGS = "earnings"
+    GUIDANCE = "guidance"
+    SEC_FILING = "sec_filing"
+    PRODUCT = "product"
+    M_AND_A = "m_and_a"
+    REGULATORY = "regulatory"
+    LITIGATION = "litigation"
+    LEADERSHIP = "leadership"
+    OTHER = "other"
+
+
+class EventStatus(StrEnum):
+    NEW = "new"
+    DEVELOPING = "developing"
+    CORRECTED = "corrected"
+    REFUTED = "refuted"
+    RESOLVED = "resolved"
+
+
+class EvidenceStatus(StrEnum):
+    SUFFICIENT = "sufficient"
+    INSUFFICIENT = "insufficient"
+    CONFLICTING = "conflicting"
+    ABSTAINED = "abstained"
+
+
 DOCUMENT_SOURCE_TYPES = frozenset(
     {
         SourceType.SEC_FILING,
@@ -100,6 +128,7 @@ DERIVED_ONLY_OUTPUT_KINDS = frozenset(
         OutputKind.EVIDENCE_SPAN_CANDIDATE,
         OutputKind.CLAIM,
         OutputKind.EVIDENCE_SPAN,
+        OutputKind.EVENT,
         OutputKind.VALIDATION_ERROR,
     }
 )

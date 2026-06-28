@@ -72,19 +72,24 @@ def chunk_document_record(
     if extracted is None:
         return ()
 
+    chunk_metadata = {
+        "text_source": extracted.source,
+        "source_type": document.source_type,
+        "source_tier": document.source_tier,
+        "source_family_id": document.source_family_id,
+        "published_at": document.published_at.isoformat().replace("+00:00", "Z"),
+    }
+    form = document.metadata.get("form")
+    if isinstance(form, str) and form:
+        chunk_metadata["form"] = form
+
     return chunk_text(
         document=document,
         text=extracted.text,
         max_chars=max_chars,
         overlap_chars=overlap_chars,
         section_label=section_label,
-        metadata={
-            "text_source": extracted.source,
-            "source_type": document.source_type,
-            "source_tier": document.source_tier,
-            "source_family_id": document.source_family_id,
-            "published_at": document.published_at.isoformat().replace("+00:00", "Z"),
-        },
+        metadata=chunk_metadata,
     )
 
 

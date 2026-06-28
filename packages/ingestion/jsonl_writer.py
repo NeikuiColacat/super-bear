@@ -16,6 +16,7 @@ _OUTPUT_FILES = {
     OutputKind.EVIDENCE_SPAN_CANDIDATE: "evidence_span_candidates.jsonl",
     OutputKind.CLAIM: "claims.jsonl",
     OutputKind.EVIDENCE_SPAN: "evidence_spans.jsonl",
+    OutputKind.EVENT: "events.jsonl",
     OutputKind.VALIDATION_ERROR: "validation_errors.jsonl",
     OutputKind.MARKET_CONTEXT: "market_context.jsonl",
     OutputKind.SEARCH_LEAD: "search_leads.jsonl",

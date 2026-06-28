@@ -21,6 +21,7 @@ class IngestionRunConfig(BaseModel):
     write_chunks: bool = False
     write_candidates: bool = False
     write_ledger: bool = False
+    write_events: bool = False
     chunk_max_chars: int = Field(default=1800, ge=1)
     chunk_overlap_chars: int = Field(default=150, ge=0)
     source_options: dict[str, dict[str, JsonValue]] = Field(default_factory=dict)
