@@ -628,3 +628,41 @@ def test_runner_can_write_events(tmp_path) -> None:
         OutputKind.VALIDATION_ERROR,
         OutputKind.EVENT,
     }
+
+
+def test_runner_can_write_event_cards_and_brief(tmp_path) -> None:
+    registry = SourceRegistry.from_yaml("configs/sources.yaml")
+
+    result = run_ingestion(
+        registry=registry,
+        normalized_dir=tmp_path / "normalized",
+        raw_dir=tmp_path / "raw",
+        runs_dir=tmp_path / "runs",
+        run_id="run_20260628T080000Z",
+        adapter_classes={"sec_edgar": ChunkingSecAdapter},
+        source_ids=("sec_edgar",),
+        write_event_cards=True,
+        write_brief=True,
+        started_at=_ts(8, 0),
+        finished_at=_ts(8, 2),
+    )
+
+    cards_path = tmp_path / "normalized" / "event_cards.jsonl"
+    brief_path = tmp_path / "normalized" / "briefings.jsonl"
+    cards = [
+        json.loads(line) for line in cards_path.read_text(encoding="utf-8").splitlines()
+    ]
+    briefs = [
+        json.loads(line) for line in brief_path.read_text(encoding="utf-8").splitlines()
+    ]
+
+    assert cards[0]["what_happened"] == "Net sales increased year over year."
+    assert cards[0]["key_claim_ids"]
+    assert cards[0]["key_evidence_span_ids"]
+    assert cards[0]["source_summary"] == ["regulatory_primary:sec_filing"]
+    assert briefs[0]["event_card_ids"] == [cards[0]["event_card_id"]]
+    assert cards[0]["key_claim_ids"][0] in briefs[0]["markdown"]
+    assert {
+        output.output_kind
+        for output in result.manifest.sources[0].derived_outputs
+    } >= {OutputKind.EVENT, OutputKind.EVENT_CARD, OutputKind.BRIEFING}

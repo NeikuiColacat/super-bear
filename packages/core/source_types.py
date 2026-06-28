@@ -9,6 +9,9 @@ class OutputKind(StrEnum):
     CLAIM = "claim"
     EVIDENCE_SPAN = "evidence_span"
     EVENT = "event"
+    EVENT_CARD = "event_card"
+    BRIEFING = "briefing"
+    INVESTIGATOR_RUN = "investigator_run"
     VALIDATION_ERROR = "validation_error"
     MARKET_CONTEXT = "market_context"
     SEARCH_LEAD = "search_lead"
@@ -129,6 +132,9 @@ DERIVED_ONLY_OUTPUT_KINDS = frozenset(
         OutputKind.CLAIM,
         OutputKind.EVIDENCE_SPAN,
         OutputKind.EVENT,
+        OutputKind.EVENT_CARD,
+        OutputKind.BRIEFING,
+        OutputKind.INVESTIGATOR_RUN,
         OutputKind.VALIDATION_ERROR,
     }
 )

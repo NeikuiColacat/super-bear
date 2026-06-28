@@ -7,6 +7,7 @@ from typing import Mapping
 
 from pydantic import BaseModel, ConfigDict
 
+from packages.briefing import build_event_cards, render_daily_brief
 from packages.core import DocumentChunk, OutputKind
 from packages.evidence import build_pre_event_ledger
 from packages.events import assemble_events
@@ -63,6 +64,8 @@ def run_ingestion(
     write_candidates: bool = False,
     write_ledger: bool = False,
     write_events: bool = False,
+    write_event_cards: bool = False,
+    write_brief: bool = False,
     chunk_max_chars: int = DEFAULT_CHUNK_MAX_CHARS,
     chunk_overlap_chars: int = DEFAULT_CHUNK_OVERLAP_CHARS,
     started_at: datetime | None = None,
@@ -71,7 +74,8 @@ def run_ingestion(
     adapters = adapter_classes or DEFAULT_ADAPTER_CLASSES
     writer = JsonlWriter(normalized_dir)
     adapter_options = source_options or {}
-    effective_write_ledger = write_ledger or write_events
+    effective_write_events = write_events or write_event_cards or write_brief
+    effective_write_ledger = write_ledger or effective_write_events
 
     actual_started_at = started_at or datetime.now(timezone.utc)
     source_results: list[RunSourceResult] = []
@@ -90,7 +94,9 @@ def run_ingestion(
             write_chunks=write_chunks,
             write_candidates=write_candidates,
             write_ledger=effective_write_ledger,
-            write_events=write_events,
+            write_events=effective_write_events,
+            write_event_cards=write_event_cards or write_brief,
+            write_brief=write_brief,
         )
 
     for source in enabled_sources:
@@ -220,13 +226,13 @@ def run_ingestion(
                             skipped_reason=ledger_write_result.skipped_reason,
                         )
                     )
-                if write_events:
+                if effective_write_events:
+                    events = assemble_events(
+                        claims=ledger.claims,
+                        evidence_spans=ledger.evidence_spans,
+                    )
                     event_records = [
-                        event.model_dump(mode="json")
-                        for event in assemble_events(
-                            claims=ledger.claims,
-                            evidence_spans=ledger.evidence_spans,
-                        )
+                        event.model_dump(mode="json") for event in events
                     ]
                     event_batch = AdapterBatch.success(
                         source_id=batch.source_id,
@@ -247,6 +253,59 @@ def run_ingestion(
                             skipped_reason=event_write_result.skipped_reason,
                         )
                     )
+                    if write_event_cards or write_brief:
+                        cards = build_event_cards(
+                            events=events,
+                            claims=ledger.claims,
+                            evidence_spans=ledger.evidence_spans,
+                            created_at=batch.retrieved_at,
+                        )
+                        card_records = [
+                            card.model_dump(mode="json") for card in cards
+                        ]
+                        card_batch = AdapterBatch.success(
+                            source_id=batch.source_id,
+                            output_kind=OutputKind.EVENT_CARD,
+                            retrieved_at=batch.retrieved_at,
+                            records=card_records,
+                        )
+                        card_write_result = writer.write_batch(card_batch)
+                        derived_outputs.append(
+                            RunDerivedOutput(
+                                output_kind=card_write_result.output_kind,
+                                output_path=(
+                                    str(card_write_result.output_path)
+                                    if card_write_result.output_path
+                                    else None
+                                ),
+                                records_written=card_write_result.records_written,
+                                skipped_reason=card_write_result.skipped_reason,
+                            )
+                        )
+                    if write_brief:
+                        brief = render_daily_brief(
+                            cards=cards,
+                            created_at=batch.retrieved_at,
+                        )
+                        brief_batch = AdapterBatch.success(
+                            source_id=batch.source_id,
+                            output_kind=OutputKind.BRIEFING,
+                            retrieved_at=batch.retrieved_at,
+                            records=[brief.model_dump(mode="json")],
+                        )
+                        brief_write_result = writer.write_batch(brief_batch)
+                        derived_outputs.append(
+                            RunDerivedOutput(
+                                output_kind=brief_write_result.output_kind,
+                                output_path=(
+                                    str(brief_write_result.output_path)
+                                    if brief_write_result.output_path
+                                    else None
+                                ),
+                                records_written=brief_write_result.records_written,
+                                skipped_reason=brief_write_result.skipped_reason,
+                            )
+                        )
         source_result = RunSourceResult.from_batch(
             source=source,
             batch=batch,
@@ -317,6 +376,8 @@ def _clear_output_files(
     write_candidates: bool,
     write_ledger: bool,
     write_events: bool,
+    write_event_cards: bool,
+    write_brief: bool,
 ) -> None:
     if (
         (write_chunks or write_candidates or write_ledger)
@@ -340,6 +401,10 @@ def _clear_output_files(
         )
     if write_events and OutputKind.DOCUMENT in output_kinds:
         output_kinds.add(OutputKind.EVENT)
+    if write_event_cards and OutputKind.DOCUMENT in output_kinds:
+        output_kinds.add(OutputKind.EVENT_CARD)
+    if write_brief and OutputKind.DOCUMENT in output_kinds:
+        output_kinds.add(OutputKind.BRIEFING)
     if OutputKind.DOCUMENT in output_kinds:
         output_kinds.update(
             {
@@ -349,6 +414,8 @@ def _clear_output_files(
                 OutputKind.CLAIM,
                 OutputKind.EVIDENCE_SPAN,
                 OutputKind.EVENT,
+                OutputKind.EVENT_CARD,
+                OutputKind.BRIEFING,
                 OutputKind.VALIDATION_ERROR,
             }
         )
@@ -361,6 +428,8 @@ def _clear_output_files(
                 OutputKind.CLAIM,
                 OutputKind.EVIDENCE_SPAN,
                 OutputKind.EVENT,
+                OutputKind.EVENT_CARD,
+                OutputKind.BRIEFING,
                 OutputKind.VALIDATION_ERROR,
             }
         )
@@ -414,6 +483,16 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Also assemble pre-event ledger records into events. Implies --write-ledger.",
     )
+    parser.add_argument(
+        "--write-event-cards",
+        action="store_true",
+        help="Also generate event cards. Implies --write-events.",
+    )
+    parser.add_argument(
+        "--write-brief",
+        action="store_true",
+        help="Also generate a markdown briefing record. Implies --write-event-cards.",
+    )
     return parser
 
 
@@ -446,6 +525,8 @@ def main(argv: list[str] | None = None) -> int:
         write_candidates=args.write_candidates or config.write_candidates,
         write_ledger=args.write_ledger or config.write_ledger,
         write_events=args.write_events or config.write_events,
+        write_event_cards=args.write_event_cards or config.write_event_cards,
+        write_brief=args.write_brief or config.write_brief,
         chunk_max_chars=config.chunk_max_chars,
         chunk_overlap_chars=config.chunk_overlap_chars,
     )

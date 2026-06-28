@@ -269,6 +269,56 @@ class Event(BaseModel):
         return self
 
 
+class EventCard(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    event_card_id: str = Field(pattern=r"^event_card:[a-z0-9][a-z0-9:._/-]*$")
+    event_id: str = Field(pattern=r"^event:[a-z0-9][a-z0-9:._/-]*$")
+    title: str = Field(min_length=1)
+    what_happened: str = Field(min_length=1)
+    evidence_status: EvidenceStatus
+    source_summary: tuple[str, ...] = ()
+    key_claim_ids: tuple[str, ...] = Field(min_length=1)
+    key_evidence_span_ids: tuple[str, ...] = Field(min_length=1)
+    uncertainties: tuple[str, ...] = ()
+    monitoring_status: str = Field(min_length=1)
+    created_at: datetime
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
+
+    @field_validator("created_at")
+    @classmethod
+    def _require_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("created_at must be timezone-aware")
+        return value
+
+    @model_validator(mode="after")
+    def _require_unique_references(self) -> EventCard:
+        if len(set(self.key_claim_ids)) != len(self.key_claim_ids):
+            raise ValueError("key_claim_ids must be unique")
+        if len(set(self.key_evidence_span_ids)) != len(self.key_evidence_span_ids):
+            raise ValueError("key_evidence_span_ids must be unique")
+        return self
+
+
+class Briefing(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    briefing_id: str = Field(pattern=r"^briefing:[a-z0-9][a-z0-9:._/-]*$")
+    title: str = Field(min_length=1)
+    created_at: datetime
+    event_card_ids: tuple[str, ...] = ()
+    markdown: str = Field(min_length=1)
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
+
+    @field_validator("created_at")
+    @classmethod
+    def _require_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("created_at must be timezone-aware")
+        return value
+
+
 class PipelineValidationError(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 

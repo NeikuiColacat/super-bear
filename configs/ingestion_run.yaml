@@ -14,6 +14,8 @@ enabled_source_ids:
 skip_unimplemented_adapters: true
 write_ledger: false
 write_events: false
+write_event_cards: false
+write_brief: false
 source_options:
   sec_edgar:
     ciks:
