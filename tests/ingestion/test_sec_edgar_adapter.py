@@ -1,4 +1,6 @@
 from datetime import datetime, timezone
+import json
+from urllib.error import HTTPError
 
 import pytest
 
@@ -57,13 +59,109 @@ def test_build_request_headers_includes_user_agent() -> None:
     }
 
 
-def test_sec_edgar_adapter_returns_empty_success_batch_until_network_fetch_exists() -> None:
+def test_sec_edgar_adapter_requires_user_agent_before_network_fetch(tmp_path) -> None:
     registry = SourceRegistry.from_yaml("configs/sources.yaml")
-    adapter = SecEdgarAdapter(registry.get("sec_edgar"))
+    adapter = SecEdgarAdapter(
+        registry.get("sec_edgar"),
+        raw_dir=tmp_path / "raw",
+        options={"ciks": ["320193"]},
+        fetch_bytes=lambda url, headers, timeout: pytest.fail("network should not run"),
+    )
 
-    batch = adapter.fetch(limit=3)
+    batch = adapter.fetch(limit=1)
 
+    assert batch.ok is False
+    assert batch.error is not None
+    assert batch.error.code == "missing_user_agent"
+    assert batch.records == ()
+    assert batch.raw_uris == ()
+
+
+def test_sec_edgar_adapter_fetches_submissions_json_to_raw_store(tmp_path) -> None:
+    registry = SourceRegistry.from_yaml("configs/sources.yaml")
+    seen_requests = []
+
+    def fake_fetch(url: str, headers: dict[str, str], timeout: float) -> bytes:
+        seen_requests.append((url, headers, timeout))
+        return json.dumps(
+            {
+                "cik": "0000320193",
+                "name": "Apple Inc.",
+                "tickers": ["AAPL"],
+                "filings": {
+                    "recent": {
+                        "accessionNumber": ["0000320193-26-000010"],
+                        "filingDate": ["2026-05-01"],
+                        "reportDate": ["2026-03-28"],
+                        "acceptanceDateTime": ["2026-05-01T22:03:00.000Z"],
+                        "form": ["10-Q"],
+                        "primaryDocument": ["aapl-20260328.htm"],
+                        "primaryDocDescription": ["10-Q"],
+                        "items": [""],
+                        "size": [123],
+                        "isXBRL": [1],
+                        "isInlineXBRL": [1],
+                    }
+                },
+            }
+        ).encode("utf-8")
+
+    adapter = SecEdgarAdapter(
+        registry.get("sec_edgar"),
+        raw_dir=tmp_path / "raw",
+        options={
+            "ciks": ["320193"],
+            "user_agent": "super-bear-dev contact@example.com",
+            "request_timeout_seconds": 7,
+        },
+        fetch_bytes=fake_fetch,
+    )
+
+    batch = adapter.fetch(limit=1)
+
+    raw_path = tmp_path / "raw" / "sec_edgar" / "0000320193" / "submissions.json"
     assert batch.ok is True
+    assert batch.source_id == "sec_edgar"
+    assert batch.output_kind is OutputKind.DOCUMENT
+    assert len(batch.records) == 1
+    assert batch.records[0]["doc_id"] == (
+        "sec:0000320193:0000320193-26-000010:aapl-20260328.htm"
+    )
+    assert batch.records[0]["metadata"]["form"] == "10-Q"
+    assert batch.raw_uris == (str(raw_path),)
+    assert json.loads(raw_path.read_text(encoding="utf-8"))["name"] == "Apple Inc."
+
+    assert seen_requests == [
+        (
+            "https://data.sec.gov/submissions/CIK0000320193.json",
+            {
+                "Accept": "application/json, text/html;q=0.9, */*;q=0.8",
+                "User-Agent": "super-bear-dev contact@example.com",
+            },
+            7,
+        )
+    ]
+
+
+def test_sec_edgar_adapter_records_http_errors(tmp_path) -> None:
+    registry = SourceRegistry.from_yaml("configs/sources.yaml")
+
+    def failing_fetch(url: str, headers: dict[str, str], timeout: float) -> bytes:
+        raise HTTPError(url, 403, "Forbidden", hdrs=None, fp=None)
+
+    adapter = SecEdgarAdapter(
+        registry.get("sec_edgar"),
+        raw_dir=tmp_path / "raw",
+        options={
+            "ciks": ["320193"],
+            "user_agent": "super-bear-dev contact@example.com",
+        },
+        fetch_bytes=failing_fetch,
+    )
+
+    batch = adapter.fetch(limit=1)
+
+    assert batch.ok is False
     assert batch.source_id == "sec_edgar"
     assert batch.output_kind is OutputKind.DOCUMENT
     assert batch.records == ()
@@ -71,3 +169,7 @@ def test_sec_edgar_adapter_returns_empty_success_batch_until_network_fetch_exist
     assert batch.records_seen == 0
     assert batch.records_written == 0
     assert batch.retrieved_at <= datetime.now(timezone.utc)
+    assert batch.error is not None
+    assert batch.error.code == "http_error"
+    assert batch.error.retryable is False
+    assert batch.error.details["status_code"] == 403

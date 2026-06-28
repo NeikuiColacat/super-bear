@@ -1,5 +1,6 @@
 version: 1
 source_registry_path: configs/sources.yaml
+raw_dir: data/raw
 normalized_dir: data/normalized
 runs_dir: data/runs
 default_limit: null
@@ -11,3 +12,7 @@ enabled_source_ids:
   - brave_search
   - stock_sentiment
 skip_unimplemented_adapters: true
+source_options:
+  sec_edgar:
+    ciks:
+      - "0000320193"

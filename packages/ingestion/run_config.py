@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 import yaml
 
 
@@ -12,11 +12,13 @@ class IngestionRunConfig(BaseModel):
 
     version: Literal[1]
     source_registry_path: Path
+    raw_dir: Path
     normalized_dir: Path
     runs_dir: Path
     default_limit: int | None = Field(default=None, ge=1)
     enabled_source_ids: tuple[str, ...] = ()
     skip_unimplemented_adapters: bool = True
+    source_options: dict[str, dict[str, JsonValue]] = Field(default_factory=dict)
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> IngestionRunConfig:

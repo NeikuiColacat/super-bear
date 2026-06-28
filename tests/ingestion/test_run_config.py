@@ -10,6 +10,7 @@ def test_ingestion_run_config_loads_yaml_template() -> None:
     config = IngestionRunConfig.from_yaml("configs/ingestion_run.yaml")
 
     assert config.source_registry_path == Path("configs/sources.yaml")
+    assert config.raw_dir == Path("data/raw")
     assert config.normalized_dir == Path("data/normalized")
     assert config.runs_dir == Path("data/runs")
     assert config.default_limit is None
@@ -22,6 +23,7 @@ def test_ingestion_run_config_loads_yaml_template() -> None:
         "stock_sentiment",
     )
     assert config.skip_unimplemented_adapters is True
+    assert config.source_options["sec_edgar"]["ciks"] == ["0000320193"]
 
 
 def test_ingestion_run_config_rejects_unsupported_version(tmp_path) -> None:
@@ -30,12 +32,17 @@ def test_ingestion_run_config_rejects_unsupported_version(tmp_path) -> None:
         """
 version: 2
 source_registry_path: configs/sources.yaml
+raw_dir: data/raw
 normalized_dir: data/normalized
 runs_dir: data/runs
 default_limit: null
 enabled_source_ids:
   - sec_edgar
 skip_unimplemented_adapters: true
+source_options:
+  sec_edgar:
+    ciks:
+      - "0000320193"
 """,
         encoding="utf-8",
     )

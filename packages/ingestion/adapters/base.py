@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from datetime import datetime
+from pathlib import Path
 from typing import ClassVar
+from collections.abc import Mapping
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
 
@@ -95,13 +98,21 @@ class AdapterBatch(BaseModel):
 class BaseSourceAdapter(ABC):
     source_id: ClassVar[str]
 
-    def __init__(self, source: SourceConfig) -> None:
+    def __init__(
+        self,
+        source: SourceConfig,
+        *,
+        raw_dir: str | Path | None = None,
+        options: Mapping[str, Any] | None = None,
+    ) -> None:
         if source.source_id != self.source_id:
             raise ValueError(
                 f"{self.__class__.__name__} handles {self.source_id}, "
                 f"got {source.source_id}"
             )
         self.source = source
+        self.raw_dir = Path(raw_dir) if raw_dir is not None else None
+        self.options = dict(options or {})
 
     @property
     def output_kind(self) -> OutputKind:

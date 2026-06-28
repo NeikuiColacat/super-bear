@@ -8,6 +8,11 @@ from typing import Mapping
 from pydantic import BaseModel, ConfigDict
 
 from packages.ingestion.adapters import BaseSourceAdapter, SecEdgarAdapter
+from packages.ingestion.cli_preview import (
+    CliSourcePreview,
+    build_cli_preview,
+    format_cli_preview,
+)
 from packages.ingestion.jsonl_writer import JsonlWriter
 from packages.ingestion.registry import SourceRegistry
 from packages.ingestion.run_config import IngestionRunConfig
@@ -28,26 +33,31 @@ class IngestionRunResult(BaseModel):
 
     manifest: RunManifest
     manifest_path: Path
+    cli_previews: tuple[CliSourcePreview, ...] = ()
 
 
 def run_ingestion(
     *,
     registry: SourceRegistry,
     normalized_dir: str | Path,
+    raw_dir: str | Path | None,
     runs_dir: str | Path,
     run_id: str,
     adapter_classes: Mapping[str, type[BaseSourceAdapter]] | None = None,
     limit: int | None = None,
     source_ids: tuple[str, ...] = (),
+    source_options: Mapping[str, dict] | None = None,
     skip_unimplemented_adapters: bool = True,
     started_at: datetime | None = None,
     finished_at: datetime | None = None,
 ) -> IngestionRunResult:
     adapters = adapter_classes or DEFAULT_ADAPTER_CLASSES
     writer = JsonlWriter(normalized_dir)
+    adapter_options = source_options or {}
 
     actual_started_at = started_at or datetime.now(timezone.utc)
     source_results: list[RunSourceResult] = []
+    cli_previews: list[CliSourcePreview] = []
 
     selected_source_ids = set(source_ids)
     for source in registry.enabled_sources():
@@ -58,26 +68,30 @@ def run_ingestion(
         if adapter_class is None:
             if not skip_unimplemented_adapters:
                 raise ValueError(f"adapter not implemented: {source.adapter}")
-            source_results.append(
-                RunSourceResult.skipped(
-                    source_id=source.source_id,
-                    adapter=source.adapter,
-                    output_kind=source.output_kind,
-                    skipped_reason="adapter_not_implemented",
-                )
+            source_result = RunSourceResult.skipped(
+                source_id=source.source_id,
+                adapter=source.adapter,
+                output_kind=source.output_kind,
+                skipped_reason="adapter_not_implemented",
             )
+            source_results.append(source_result)
+            cli_previews.append(build_cli_preview(source_result))
             continue
 
-        adapter = adapter_class(source)
+        adapter = adapter_class(
+            source,
+            raw_dir=raw_dir,
+            options=adapter_options.get(source.source_id, {}),
+        )
         batch = adapter.fetch(limit=limit)
         write_result = writer.write_batch(batch)
-        source_results.append(
-            RunSourceResult.from_batch(
-                source=source,
-                batch=batch,
-                write_result=write_result,
-            )
+        source_result = RunSourceResult.from_batch(
+            source=source,
+            batch=batch,
+            write_result=write_result,
         )
+        source_results.append(source_result)
+        cli_previews.append(build_cli_preview(source_result, records=batch.records))
 
     manifest = RunManifest(
         run_id=run_id,
@@ -86,7 +100,11 @@ def run_ingestion(
         sources=tuple(source_results),
     )
     manifest_path = RunManifestWriter(runs_dir).write(manifest)
-    return IngestionRunResult(manifest=manifest, manifest_path=manifest_path)
+    return IngestionRunResult(
+        manifest=manifest,
+        manifest_path=manifest_path,
+        cli_previews=tuple(cli_previews),
+    )
 
 
 def make_run_id(now: datetime | None = None) -> str:
@@ -101,7 +119,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default="configs/ingestion_run.yaml",
         help="Path to the ingestion run YAML config.",
     )
-    parser.add_argument("--run-id", default=None, help="Run identifier for manifest output.")
+    parser.add_argument(
+        "--run-id",
+        default=None,
+        help="Run identifier for manifest output.",
+    )
     parser.add_argument(
         "--source",
         action="append",
@@ -118,15 +140,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _print_summary(result: IngestionRunResult) -> None:
-    print(f"run_id: {result.manifest.run_id}")
-    print(f"manifest: {result.manifest_path}")
-    print("sources:")
-    for source in result.manifest.sources:
-        print(
-            f"- {source.source_id}: {source.status}, "
-            f"records_written={source.records_written}, "
-            f"skipped_reason={source.skipped_reason}"
-        )
+    print(
+        format_cli_preview(
+            run_id=result.manifest.run_id,
+            manifest_path=result.manifest_path,
+            previews=result.cli_previews,
+        ),
+        end="",
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -136,10 +157,12 @@ def main(argv: list[str] | None = None) -> int:
     result = run_ingestion(
         registry=registry,
         normalized_dir=config.normalized_dir,
+        raw_dir=config.raw_dir,
         runs_dir=config.runs_dir,
         run_id=args.run_id or make_run_id(),
         limit=args.limit if args.limit is not None else config.default_limit,
         source_ids=config.selected_source_ids(tuple(args.source)),
+        source_options=config.source_options,
         skip_unimplemented_adapters=config.skip_unimplemented_adapters,
     )
     _print_summary(result)

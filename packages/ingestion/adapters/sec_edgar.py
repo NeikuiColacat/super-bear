@@ -1,12 +1,25 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+from typing import Callable
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
-from .base import AdapterBatch, BaseSourceAdapter
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
+
+from packages.ingestion.raw_store import RawStore
+
+from .base import AdapterBatch, AdapterError, BaseSourceAdapter
 
 
 DATA_SEC_BASE_URL = "https://data.sec.gov"
 ARCHIVES_BASE_URL = "https://www.sec.gov/Archives/edgar/data"
+DEFAULT_REQUEST_TIMEOUT_SECONDS = 20.0
+
+FetchBytes = Callable[[str, dict[str, str], float], bytes]
 
 
 def normalize_cik(cik: str | int) -> str:
@@ -66,14 +79,179 @@ def build_request_headers(user_agent: str) -> dict[str, str]:
     }
 
 
+def fetch_url_bytes(url: str, headers: dict[str, str], timeout: float) -> bytes:
+    request = Request(url, headers=headers)
+    with urlopen(request, timeout=timeout) as response:
+        return response.read()
+
+
+class SecEdgarFetchOptions(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    ciks: tuple[str, ...] = ()
+    include_forms: tuple[str, ...] = ()
+    user_agent: str | None = Field(default=None, min_length=1)
+    request_timeout_seconds: float = Field(
+        default=DEFAULT_REQUEST_TIMEOUT_SECONDS,
+        gt=0,
+    )
+
+
 class SecEdgarAdapter(BaseSourceAdapter):
     source_id = "sec_edgar"
 
+    def __init__(
+        self,
+        *args,
+        fetch_bytes: FetchBytes | None = None,
+        **kwargs,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.fetch_options = SecEdgarFetchOptions.model_validate(self.options)
+        self._fetch_bytes = fetch_bytes or fetch_url_bytes
+
     def fetch(self, *, limit: int | None = None) -> AdapterBatch:
+        retrieved_at = datetime.now(timezone.utc)
+        ciks = tuple(normalize_cik(cik) for cik in self.fetch_options.ciks)
+        if limit is not None:
+            ciks = ciks[:limit]
+        if not ciks:
+            return AdapterBatch.failure(
+                source_id=self.source.source_id,
+                output_kind=self.source.output_kind,
+                retrieved_at=retrieved_at,
+                error=AdapterError(
+                    code="missing_ciks",
+                    message="SEC EDGAR fetch requires at least one CIK",
+                    retryable=False,
+                ),
+            )
+
+        user_agent = self._resolve_user_agent()
+        if not user_agent:
+            return AdapterBatch.failure(
+                source_id=self.source.source_id,
+                output_kind=self.source.output_kind,
+                retrieved_at=retrieved_at,
+                error=AdapterError(
+                    code="missing_user_agent",
+                    message=(
+                        "SEC EDGAR fetch requires SEC_USER_AGENT "
+                        "or user_agent option"
+                    ),
+                    retryable=False,
+                ),
+            )
+
+        if self.raw_dir is None:
+            return AdapterBatch.failure(
+                source_id=self.source.source_id,
+                output_kind=self.source.output_kind,
+                retrieved_at=retrieved_at,
+                error=AdapterError(
+                    code="missing_raw_dir",
+                    message="SEC EDGAR fetch requires a raw_dir",
+                    retryable=False,
+                ),
+            )
+
+        headers = build_request_headers(user_agent)
+        raw_store = RawStore(self.raw_dir)
+        raw_uris: list[str] = []
+        records: list[dict[str, JsonValue]] = []
+
+        for cik in ciks:
+            url = build_submissions_url(cik)
+            try:
+                content = self._fetch_bytes(
+                    url,
+                    headers,
+                    self.fetch_options.request_timeout_seconds,
+                )
+                json.loads(content)
+                result = raw_store.write_bytes(
+                    Path(self.source.source_id) / cik / "submissions.json",
+                    content,
+                )
+                raw_uris.append(result.raw_uri)
+                from packages.ingestion.parsers.sec_submissions import (
+                    DEFAULT_SEC_DOCUMENT_FORMS,
+                    parse_sec_submissions_bytes,
+                )
+
+                include_forms = self.fetch_options.include_forms
+                if not include_forms:
+                    include_forms = DEFAULT_SEC_DOCUMENT_FORMS
+                documents = parse_sec_submissions_bytes(
+                    content,
+                    raw_object_uri=result.raw_uri,
+                    content_hash=result.content_hash,
+                    retrieved_at=retrieved_at,
+                    include_forms=include_forms,
+                    source_id=self.source.source_id,
+                )
+                records.extend(
+                    document.model_dump(mode="json") for document in documents
+                )
+            except HTTPError as exc:
+                return self._failure(
+                    code="http_error",
+                    message=f"SEC EDGAR request failed with HTTP {exc.code}",
+                    retrieved_at=retrieved_at,
+                    retryable=exc.code == 429 or exc.code >= 500,
+                    details={"status_code": exc.code, "url": url},
+                )
+            except (URLError, TimeoutError, OSError) as exc:
+                return self._failure(
+                    code="network_error",
+                    message=f"SEC EDGAR request failed: {exc}",
+                    retrieved_at=retrieved_at,
+                    retryable=True,
+                    details={"url": url},
+                )
+            except json.JSONDecodeError as exc:
+                return self._failure(
+                    code="invalid_json",
+                    message=f"SEC EDGAR response was not valid JSON: {exc}",
+                    retrieved_at=retrieved_at,
+                    retryable=False,
+                    details={"url": url},
+                )
+
         return AdapterBatch.success(
             source_id=self.source.source_id,
             output_kind=self.source.output_kind,
-            records=[],
-            raw_uris=[],
-            retrieved_at=datetime.now(timezone.utc),
+            records=records,
+            raw_uris=raw_uris,
+            retrieved_at=retrieved_at,
+        )
+
+    def _resolve_user_agent(self) -> str | None:
+        if self.fetch_options.user_agent:
+            return self.fetch_options.user_agent
+        if self.source.user_agent_env:
+            value = os.getenv(self.source.user_agent_env)
+            if value:
+                return value
+        return None
+
+    def _failure(
+        self,
+        *,
+        code: str,
+        message: str,
+        retrieved_at: datetime,
+        retryable: bool,
+        details: dict[str, str | int],
+    ) -> AdapterBatch:
+        return AdapterBatch.failure(
+            source_id=self.source.source_id,
+            output_kind=self.source.output_kind,
+            retrieved_at=retrieved_at,
+            error=AdapterError(
+                code=code,
+                message=message,
+                retryable=retryable,
+                details=details,
+            ),
         )
