@@ -22,6 +22,12 @@ boundary:
 uv run python -m packages.harness.cli < examples/harness/validation_payload_from_pi_text.sample.json
 ```
 
+The real SEC smoke payload uses the locally fetched Apple 10-Q event pack:
+
+```bash
+uv run python -m packages.harness.cli < examples/harness/sec_10q_validation_payload_from_pi_text.sample.json
+```
+
 ## Ask Pi to produce a result
 
 ```bash

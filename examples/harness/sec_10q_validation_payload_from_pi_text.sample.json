@@ -1,0 +1,219 @@
+{
+  "request": {
+    "schema_version": "investigator.v0",
+    "investigator_run_id": "investigator_run_sec_10q_real_smoke",
+    "harness_name": "pi",
+    "harness_version": "0.80.2",
+    "adapter_version": "super_bear_sec_event_pack_v0",
+    "model_name": "deepseek-v4-flash",
+    "prompt_version": "sec_event_pack_smoke_v0",
+    "task_type": "verify_evidence_gap",
+    "budgets": {
+      "query_budget": 0,
+      "read_budget": 1,
+      "token_budget": 8000,
+      "latency_budget_ms": 60000
+    },
+    "allowed_actions": [
+      "READ_DOCUMENT",
+      "VERIFY_EVIDENCE",
+      "STOP",
+      "ABSTAIN"
+    ],
+    "event_pack": {
+      "document": {
+        "doc_id": "sec:0000320193:0000320193-26-000013:aapl-20260328.htm",
+        "source_id": "sec_edgar",
+        "source_type": "sec_filing",
+        "source_tier": "regulatory_primary",
+        "source_family_id": "issuer:0000320193",
+        "title": "Apple Inc. 10-Q filed 2026-05-01",
+        "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000013/aapl-20260328.htm",
+        "published_at": "2026-05-01T10:01:00Z",
+        "updated_at": null,
+        "retrieved_at": "2026-06-28T09:05:27.092164Z",
+        "raw_object_uri": "data/raw/sec_edgar/0000320193/submissions.json",
+        "content_hash": "sha256:ea2aa552e984a29e920cf80e0827cf32b632563935f029b6ec9de7f4fa3c026d",
+        "parser_version": "sec_submissions_v0.1",
+        "language": "en",
+        "entities": [
+          {
+            "kind": "company",
+            "value": "Apple Inc.",
+            "identifiers": {
+              "cik": "0000320193"
+            },
+            "metadata": {}
+          },
+          {
+            "kind": "ticker",
+            "value": "AAPL",
+            "identifiers": {},
+            "metadata": {}
+          },
+          {
+            "kind": "cik",
+            "value": "0000320193",
+            "identifiers": {},
+            "metadata": {}
+          },
+          {
+            "kind": "form",
+            "value": "10-Q",
+            "identifiers": {},
+            "metadata": {}
+          },
+          {
+            "kind": "accession_number",
+            "value": "0000320193-26-000013",
+            "identifiers": {},
+            "metadata": {}
+          }
+        ],
+        "metadata": {
+          "acceptance_datetime": "2026-05-01T10:01:00.000Z",
+          "accession_number": "0000320193-26-000013",
+          "filing_date": "2026-05-01",
+          "form": "10-Q",
+          "is_inline_xbrl": true,
+          "is_xbrl": true,
+          "items": "",
+          "primary_doc_description": "10-Q",
+          "primary_document": "aapl-20260328.htm",
+          "primary_document_content_hash": "sha256:bb90060d61a273e51b5a472d65ae15d8b51bfd037ddf91e559f9d9adfe2a0228",
+          "primary_document_raw_uri": "data/raw/sec_edgar/0000320193/000032019326000013/aapl-20260328.htm",
+          "primary_document_text_excerpt": "aapl-20260328 UNITED STATES SECURITIES AND EXCHANGE COMMISSION Washington, D.C. 20549 FORM 10-Q (Mark One) ☒ QUARTERLY REPORT PURSUANT TO SECTION 13 OR 15(d) OF THE SECURITIES EXCHANGE ACT OF 1934 For the quarterly period ended March 28, 2026 or ☐ TRANSITION REPORT PURSUANT TO SECTION 13 OR 15(d) OF THE SECURITIES EXCHANGE ACT OF 1934 For the transition period from to . Commission File Number: 001-36743 Apple Inc. (Exact name of Registrant as specified in its charter) California 94-2404110 (Stat",
+          "report_date": "2026-03-28",
+          "size": 5809851,
+          "source_raw_kind": "sec_submissions_recent"
+        }
+      },
+      "event": {
+        "event_id": "event:issuer:0000320193:sec_filing:10-q:20260501:6c3b6ff2",
+        "canonical_title": "CONDENSED CONSOLIDATED STATEMENTS OF OPERATIONS (Unaudited) (In millions, except number of shares, which are reflected in thousands, and per-share amounts) Three Months Ended Six Months Ended March 28, 2026 March 29, 2025 March 28, 2026 March 29, 2025 Net sales: Products $ 80,208 $ 68,714 $ 193,951 $ 166,674 Services 30,976 26,645 60,989 52,985 Total net sales 111,184 95,359 254,940 219,659 Cost of sales: Products 49,179 44,030 116,657 103,477 Services 7,224 6,462 14,271 13,040 Total cost of sales 56,403 50,492 130,928 116,517 Gross margin 54,781 44,867 124,012 103,142 Operating expenses: Research and development 11,419 8,550 22,306 16,818 Selling, general and administrative 7,477 6,728 14,969 13,903 Total operating expenses 18,896 15,278 37,275 30,721 Operating income 35,885 29,589 86,737 72,421 Other income/(expense), net ( 52 ) ( 279 ) 98 ( 527 ) Income before provision for income taxes 35,833 29,310 86,835 71,894 Provision for income taxes 6,255 4,530 15,160 10,784 Net income $ 29,578 $ 24,780 $ 71,675 $ 61,110 Earnings per share: Basic $ 2.",
+        "event_type": "sec_filing",
+        "entities": [],
+        "event_time": "2026-05-01T10:01:00Z",
+        "status": "new",
+        "related_doc_ids": [
+          "sec:0000320193:0000320193-26-000013:aapl-20260328.htm"
+        ],
+        "claim_ids": [
+          "sec:0000320193:0000320193-26-000013:aapl-20260328.htm:claim:000004"
+        ],
+        "evidence_status": "sufficient",
+        "assembly_key": "issuer:0000320193|sec_filing|10-Q|20260501",
+        "metadata": {
+          "assembly_version": "event_assembler_v0.1",
+          "merge_reason": "same_source_family_event_type_form_and_day",
+          "source_family_id": "issuer:0000320193",
+          "evidence_check_version": "evidence_checker_v0.1",
+          "evidence_check_reasons": [
+            "all_event_claims_supported"
+          ]
+        }
+      },
+      "event_card": {
+        "event_card_id": "event_card:issuer:0000320193:sec_filing:10-q:20260501:6c3b6ff2",
+        "event_id": "event:issuer:0000320193:sec_filing:10-q:20260501:6c3b6ff2",
+        "title": "CONDENSED CONSOLIDATED STATEMENTS OF OPERATIONS (Unaudited) (In millions, except number of shares, which are reflected in thousands, and per-share amounts) Three Months Ended Six Months Ended March 28, 2026 March 29, 2025 March 28, 2026 March 29, 2025 Net sales: Products $ 80,208 $ 68,714 $ 193,951 $ 166,674 Services 30,976 26,645 60,989 52,985 Total net sales 111,184 95,359 254,940 219,659 Cost of sales: Products 49,179 44,030 116,657 103,477 Services 7,224 6,462 14,271 13,040 Total cost of sales 56,403 50,492 130,928 116,517 Gross margin 54,781 44,867 124,012 103,142 Operating expenses: Research and development 11,419 8,550 22,306 16,818 Selling, general and administrative 7,477 6,728 14,969 13,903 Total operating expenses 18,896 15,278 37,275 30,721 Operating income 35,885 29,589 86,737 72,421 Other income/(expense), net ( 52 ) ( 279 ) 98 ( 527 ) Income before provision for income taxes 35,833 29,310 86,835 71,894 Provision for income taxes 6,255 4,530 15,160 10,784 Net income $ 29,578 $ 24,780 $ 71,675 $ 61,110 Earnings per share: Basic $ 2.",
+        "what_happened": "CONDENSED CONSOLIDATED STATEMENTS OF OPERATIONS (Unaudited) (In millions, except number of shares, which are reflected in thousands, and per-share amounts) Three Months Ended Six Months Ended March 28, 2026 March 29, 2025 March 28, 2026 March 29, 2025 Net sales: Products $ 80,208 $ 68,714 $ 193,951 $ 166,674 Services 30,976 26,645 60,989 52,985 Total net sales 111,184 95,359 254,940 219,659 Cost of sales: Products 49,179 44,030 116,657 103,477 Services 7,224 6,462 14,271 13,040 Total cost of sales 56,403 50,492 130,928 116,517 Gross margin 54,781 44,867 124,012 103,142 Operating expenses: Research and development 11,419 8,550 22,306 16,818 Selling, general and administrative 7,477 6,728 14,969 13,903 Total operating expenses 18,896 15,278 37,275 30,721 Operating income 35,885 29,589 86,737 72,421 Other income/(expense), net ( 52 ) ( 279 ) 98 ( 527 ) Income before provision for income taxes 35,833 29,310 86,835 71,894 Provision for income taxes 6,255 4,530 15,160 10,784 Net income $ 29,578 $ 24,780 $ 71,675 $ 61,110 Earnings per share: Basic $ 2.",
+        "evidence_status": "sufficient",
+        "source_summary": [
+          "regulatory_primary:sec_filing"
+        ],
+        "key_claim_ids": [
+          "sec:0000320193:0000320193-26-000013:aapl-20260328.htm:claim:000004"
+        ],
+        "key_evidence_span_ids": [
+          "sec:0000320193:0000320193-26-000013:aapl-20260328.htm:span:000004"
+        ],
+        "uncertainties": [
+          "all_event_claims_supported"
+        ],
+        "monitoring_status": "monitor_for_updates",
+        "created_at": "2026-06-28T09:05:27.092164Z",
+        "metadata": {
+          "generator": "rule_event_card_v0.1"
+        }
+      },
+      "brief": {
+        "briefing_id": "briefing:20260628",
+        "title": "Super Bear Brief 2026-06-28",
+        "created_at": "2026-06-28T09:05:27.092164Z",
+        "event_card_ids": [
+          "event_card:issuer:0000320193:sec_filing:10-q:20260501:6c3b6ff2"
+        ],
+        "markdown": "# Super Bear Brief 2026-06-28\n\n## 1. CONDENSED CONSOLIDATED STATEMENTS OF OPERATIONS (Unaudited) (In millions, except number of shares, which are reflected in thousands, and per-share amounts) Three Months Ended Six Months Ended March 28, 2026 March 29, 2025 March 28, 2026 March 29, 2025 Net sales: Products $ 80,208 $ 68,714 $ 193,951 $ 166,674 Services 30,976 26,645 60,989 52,985 Total net sales 111,184 95,359 254,940 219,659 Cost of sales: Products 49,179 44,030 116,657 103,477 Services 7,224 6,462 14,271 13,040 Total cost of sales 56,403 50,492 130,928 116,517 Gross margin 54,781 44,867 124,012 103,142 Operating expenses: Research and development 11,419 8,550 22,306 16,818 Selling, general and administrative 7,477 6,728 14,969 13,903 Total operating expenses 18,896 15,278 37,275 30,721 Operating income 35,885 29,589 86,737 72,421 Other income/(expense), net ( 52 ) ( 279 ) 98 ( 527 ) Income before provision for income taxes 35,833 29,310 86,835 71,894 Provision for income taxes 6,255 4,530 15,160 10,784 Net income $ 29,578 $ 24,780 $ 71,675 $ 61,110 Earnings per share: Basic $ 2.\n\nCONDENSED CONSOLIDATED STATEMENTS OF OPERATIONS (Unaudited) (In millions, except number of shares, which are reflected in thousands, and per-share amounts) Three Months Ended Six Months Ended March 28, 2026 March 29, 2025 March 28, 2026 March 29, 2025 Net sales: Products $ 80,208 $ 68,714 $ 193,951 $ 166,674 Services 30,976 26,645 60,989 52,985 Total net sales 111,184 95,359 254,940 219,659 Cost of sales: Products 49,179 44,030 116,657 103,477 Services 7,224 6,462 14,271 13,040 Total cost of sales 56,403 50,492 130,928 116,517 Gross margin 54,781 44,867 124,012 103,142 Operating expenses: Research and development 11,419 8,550 22,306 16,818 Selling, general and administrative 7,477 6,728 14,969 13,903 Total operating expenses 18,896 15,278 37,275 30,721 Operating income 35,885 29,589 86,737 72,421 Other income/(expense), net ( 52 ) ( 279 ) 98 ( 527 ) Income before provision for income taxes 35,833 29,310 86,835 71,894 Provision for income taxes 6,255 4,530 15,160 10,784 Net income $ 29,578 $ 24,780 $ 71,675 $ 61,110 Earnings per share: Basic $ 2.\n\n- claims: sec:0000320193:0000320193-26-000013:aapl-20260328.htm:claim:000004\n- evidence: sec:0000320193:0000320193-26-000013:aapl-20260328.htm:span:000004\n- evidence_status: sufficient\n",
+        "metadata": {
+          "generator": "rule_brief_markdown_v0.1"
+        }
+      },
+      "claims": [
+        {
+          "claim_id": "sec:0000320193:0000320193-26-000013:aapl-20260328.htm:claim:000004",
+          "event_id": null,
+          "claim_text": "CONDENSED CONSOLIDATED STATEMENTS OF OPERATIONS (Unaudited) (In millions, except number of shares, which are reflected in thousands, and per-share amounts) Three Months Ended Six Months Ended March 28, 2026 March 29, 2025 March 28, 2026 March 29, 2025 Net sales: Products $ 80,208 $ 68,714 $ 193,951 $ 166,674 Services 30,976 26,645 60,989 52,985 Total net sales 111,184 95,359 254,940 219,659 Cost of sales: Products 49,179 44,030 116,657 103,477 Services 7,224 6,462 14,271 13,040 Total cost of sales 56,403 50,492 130,928 116,517 Gross margin 54,781 44,867 124,012 103,142 Operating expenses: Research and development 11,419 8,550 22,306 16,818 Selling, general and administrative 7,477 6,728 14,969 13,903 Total operating expenses 18,896 15,278 37,275 30,721 Operating income 35,885 29,589 86,737 72,421 Other income/(expense), net ( 52 ) ( 279 ) 98 ( 527 ) Income before provision for income taxes 35,833 29,310 86,835 71,894 Provision for income taxes 6,255 4,530 15,160 10,784 Net income $ 29,578 $ 24,780 $ 71,675 $ 61,110 Earnings per share: Basic $ 2.",
+          "claim_type": "fact",
+          "mandatory": false,
+          "status": "supported",
+          "metadata": {
+            "extractor": "rule_stub_v0.1",
+            "form": "10-Q",
+            "source_candidate_id": "sec:0000320193:0000320193-26-000013:aapl-20260328.htm:claim_candidate:000004",
+            "ledger_stage": "pre_event"
+          }
+        }
+      ],
+      "evidence_spans": [
+        {
+          "span_id": "sec:0000320193:0000320193-26-000013:aapl-20260328.htm:span:000004",
+          "doc_id": "sec:0000320193:0000320193-26-000013:aapl-20260328.htm",
+          "claim_id": "sec:0000320193:0000320193-26-000013:aapl-20260328.htm:claim:000004",
+          "chunk_id": "sec:0000320193:0000320193-26-000013:aapl-20260328.htm:chunk:000002",
+          "relation": "support",
+          "text": "CONDENSED CONSOLIDATED STATEMENTS OF OPERATIONS (Unaudited) (In millions, except number of shares, which are reflected in thousands, and per-share amounts) Three Months Ended Six Months Ended March 28, 2026 March 29, 2025 March 28, 2026 March 29, 2025 Net sales: Products $ 80,208 $ 68,714 $ 193,951 $ 166,674 Services 30,976 26,645 60,989 52,985 Total net sales 111,184 95,359 254,940 219,659 Cost of sales: Products 49,179 44,030 116,657 103,477 Services 7,224 6,462 14,271 13,040 Total cost of sales 56,403 50,492 130,928 116,517 Gross margin 54,781 44,867 124,012 103,142 Operating expenses: Research and development 11,419 8,550 22,306 16,818 Selling, general and administrative 7,477 6,728 14,969 13,903 Total operating expenses 18,896 15,278 37,275 30,721 Operating income 35,885 29,589 86,737 72,421 Other income/(expense), net ( 52 ) ( 279 ) 98 ( 527 ) Income before provision for income taxes 35,833 29,310 86,835 71,894 Provision for income taxes 6,255 4,530 15,160 10,784 Net income $ 29,578 $ 24,780 $ 71,675 $ 61,110 Earnings per share: Basic $ 2.",
+          "char_start": 3566,
+          "char_end": 4627,
+          "source_type": "sec_filing",
+          "source_tier": "regulatory_primary",
+          "source_family_id": "issuer:0000320193",
+          "published_at": "2026-05-01T10:01:00Z",
+          "valid_from": "2026-05-01T10:01:00Z",
+          "valid_to": null,
+          "confidence": 0.3,
+          "metadata": {
+            "extractor": "rule_stub_v0.1",
+            "form": "10-Q",
+            "source_candidate_id": "sec:0000320193:0000320193-26-000013:aapl-20260328.htm:evidence_span_candidate:000004",
+            "ledger_stage": "pre_event"
+          }
+        }
+      ],
+      "chunks": [
+        {
+          "chunk_id": "sec:0000320193:0000320193-26-000013:aapl-20260328.htm:chunk:000002",
+          "doc_id": "sec:0000320193:0000320193-26-000013:aapl-20260328.htm",
+          "chunk_index": 2,
+          "text": "Item 3. Quantitative and Qualitative Disclosures About Market Risk 19 Item 4. Controls and Procedures 19 Part II Item 1. Legal Proceedings 20 Item 1A. Risk Factors 21 Item 2. Unregistered Sales of Equity Securities and Use of Proceeds 24 Item 3. Defaults Upon Senior Securities 25 Item 4. Mine Safety Disclosures 25 Item 5. Other Information 25 Item 6. Exhibits 25 PART I — FINANCIAL INFORMATION Item 1. Financial Statements Apple Inc. CONDENSED CONSOLIDATED STATEMENTS OF OPERATIONS (Unaudited) (In millions, except number of shares, which are reflected in thousands, and per-share amounts) Three Months Ended Six Months Ended March 28, 2026 March 29, 2025 March 28, 2026 March 29, 2025 Net sales: Products $ 80,208 $ 68,714 $ 193,951 $ 166,674 Services 30,976 26,645 60,989 52,985 Total net sales 111,184 95,359 254,940 219,659 Cost of sales: Products 49,179 44,030 116,657 103,477 Services 7,224 6,462 14,271 13,040 Total cost of sales 56,403 50,492 130,928 116,517 Gross margin 54,781 44,867 124,012 103,142 Operating expenses: Research and development 11,419 8,550 22,306 16,818 Selling, general and administrative 7,477 6,728 14,969 13,903 Total operating expenses 18,896 15,278 37,275 30,721 Operating income 35,885 29,589 86,737 72,421 Other income/(expense), net ( 52 ) ( 279 ) 98 ( 527 ) Income before provision for income taxes 35,833 29,310 86,835 71,894 Provision for income taxes 6,255 4,530 15,160 10,784 Net income $ 29,578 $ 24,780 $ 71,675 $ 61,110 Earnings per share: Basic $ 2.02 $ 1.65 $ 4.87 $ 4.06 Diluted $ 2.01 $ 1.65 $ 4.85 $ 4.05 Shares used in computing earnings per share: Basic 14,673,278 14,994,082 14,710,718 15,037,903 Diluted 14,725,873 15,056,133 14,768,115 15,103,499 See accompanying Notes to Condensed Consolidated Financial Statements. Apple Inc.",
+          "char_start": 3130,
+          "char_end": 4915,
+          "section_label": "body",
+          "content_hash": "sha256:2fe18a3c405fb733809c04344a5e36339fefe896ed736fd348cc69c06ab41514",
+          "metadata": {
+            "text_source": "metadata.primary_document_raw_uri",
+            "source_type": "sec_filing",
+            "source_tier": "regulatory_primary",
+            "source_family_id": "issuer:0000320193",
+            "published_at": "2026-05-01T10:01:00Z",
+            "form": "10-Q"
+          }
+        }
+      ],
+      "open_questions": [
+        "Decide whether the existing SEC evidence supports the mandatory claim."
+      ]
+    }
+  },
+  "result_text": "```json\n{\n  \"schema_version\": \"investigator_result.v0\",\n  \"investigator_run_id\": \"investigator_run_sec_10q_real_smoke\",\n  \"status\": \"stop\",\n  \"evidence_status\": \"sufficient\",\n  \"new_claim_candidates\": [],\n  \"new_evidence_span_candidates\": [],\n  \"conflicts\": [],\n  \"abstain_reason\": null,\n  \"tool_calls\": [\n    {\n      \"action\": \"READ_DOCUMENT\",\n      \"input\": {\n        \"doc_id\": \"sec:0000320193:0000320193-26-000013:aapl-20260328.htm\"\n      },\n      \"output_ref\": \"examples/harness/sec_10q_investigator_request.sample.json\"\n    },\n    {\n      \"action\": \"VERIFY_EVIDENCE\",\n      \"input\": {\n        \"claim_id\": \"sec:0000320193:0000320193-26-000013:aapl-20260328.htm:claim:000004\",\n        \"evidence_span_id\": \"sec:0000320193:0000320193-26-000013:aapl-20260328.htm:span:000004\"\n      },\n      \"output_ref\": \"citation:sec_10q_real_smoke\"\n    }\n  ],\n  \"citations\": [\n    {\n      \"claim_id\": \"sec:0000320193:0000320193-26-000013:aapl-20260328.htm:claim:000004\",\n      \"evidence_span_id\": \"sec:0000320193:0000320193-26-000013:aapl-20260328.htm:span:000004\"\n    }\n  ]\n}\n```"
+}
