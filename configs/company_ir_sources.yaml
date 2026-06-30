@@ -1,0 +1,415 @@
+version: 1
+universe: nasdaq100
+as_of: "2026-06-25"
+universe_source_url: https://api.nasdaq.com/api/quote/list-type/nasdaq100?assetclass=stocks
+notes: >
+  Nasdaq-100 issuer skeleton seeded from Nasdaq public API date Jun 25, 2026.
+  Keep feeds empty until an official company RSS/Atom feed is manually verified.
+  AAPL is the first verified feed used for smoke tests.
+issuers:
+  - ticker: AAPL
+    company_name: "Apple Inc."
+    source_family_id: issuer:0000320193
+    feeds:
+      - url: https://www.apple.com/newsroom/rss-feed.rss
+        source_type: company_newsroom
+  - ticker: AMAT
+    company_name: "Applied Materials, Inc."
+    source_family_id: issuer:0000006951
+    feeds: []
+  - ticker: AMGN
+    company_name: "Amgen Inc."
+    source_family_id: issuer:0000318154
+    feeds: []
+  - ticker: CMCSA
+    company_name: "Comcast Corporation Class A"
+    source_family_id: issuer:0001166691
+    feeds: []
+  - ticker: INTC
+    company_name: "Intel Corporation"
+    source_family_id: issuer:0000050863
+    feeds: []
+  - ticker: KLAC
+    company_name: "KLA Corporation"
+    source_family_id: issuer:0000319201
+    feeds: []
+  - ticker: PCAR
+    company_name: "PACCAR Inc."
+    source_family_id: issuer:0000075362
+    feeds: []
+  - ticker: CTAS
+    company_name: "Cintas Corporation"
+    source_family_id: issuer:0000723254
+    feeds: []
+  - ticker: PAYX
+    company_name: "Paychex, Inc."
+    source_family_id: issuer:0000723531
+    feeds: []
+  - ticker: LRCX
+    company_name: "Lam Research Corporation"
+    source_family_id: issuer:0000707549
+    feeds: []
+  - ticker: ADSK
+    company_name: "Autodesk, Inc."
+    source_family_id: issuer:0000769397
+    feeds: []
+  - ticker: ROST
+    company_name: "Ross Stores, Inc."
+    source_family_id: issuer:0000745732
+    feeds: []
+  - ticker: MNST
+    company_name: "Monster Beverage Corporation"
+    source_family_id: issuer:0000865752
+    feeds: []
+  - ticker: MSFT
+    company_name: "Microsoft Corporation"
+    source_family_id: issuer:0000789019
+    feeds: []
+  - ticker: ADBE
+    company_name: "Adobe Inc."
+    source_family_id: issuer:0000796343
+    feeds: []
+  - ticker: FAST
+    company_name: "Fastenal Company"
+    source_family_id: issuer:0000815556
+    feeds: []
+  - ticker: EA
+    company_name: "Electronic Arts Inc."
+    source_family_id: issuer:0000712515
+    feeds: []
+  - ticker: CSCO
+    company_name: "Cisco Systems, Inc. (DE)"
+    source_family_id: issuer:0000858877
+    feeds: []
+  - ticker: REGN
+    company_name: "Regeneron Pharmaceuticals, Inc."
+    source_family_id: issuer:0000872589
+    feeds: []
+  - ticker: IDXX
+    company_name: "IDEXX Laboratories, Inc."
+    source_family_id: issuer:0000874716
+    feeds: []
+  - ticker: VRTX
+    company_name: "Vertex Pharmaceuticals Incorporated"
+    source_family_id: issuer:0000875320
+    feeds: []
+  - ticker: ODFL
+    company_name: "Old Dominion Freight Line, Inc."
+    source_family_id: issuer:0000878927
+    feeds: []
+  - ticker: QCOM
+    company_name: "QUALCOMM Incorporated"
+    source_family_id: issuer:0000804328
+    feeds: []
+  - ticker: GILD
+    company_name: "Gilead Sciences, Inc."
+    source_family_id: issuer:0000882095
+    feeds: []
+  - ticker: SNPS
+    company_name: "Synopsys, Inc."
+    source_family_id: issuer:0000883241
+    feeds: []
+  - ticker: SBUX
+    company_name: "Starbucks Corporation"
+    source_family_id: issuer:0000829224
+    feeds: []
+  - ticker: INTU
+    company_name: "Intuit Inc."
+    source_family_id: issuer:0000896878
+    feeds: []
+  - ticker: MCHP
+    company_name: "Microchip Technology Incorporated"
+    source_family_id: issuer:0000827054
+    feeds: []
+  - ticker: ORLY
+    company_name: "O'Reilly Automotive, Inc."
+    source_family_id: issuer:0000898173
+    feeds: []
+  - ticker: COST
+    company_name: "Costco Wholesale Corporation"
+    source_family_id: issuer:0000909832
+    feeds: []
+  - ticker: CPRT
+    company_name: "Copart, Inc. (DE)"
+    source_family_id: issuer:0000900075
+    feeds: []
+  - ticker: ASML
+    company_name: "ASML Holding N.V. New York Registry Shares"
+    source_family_id: issuer:0000937966
+    feeds: []
+  - ticker: TTWO
+    company_name: "Take-Two Interactive Software, Inc."
+    source_family_id: issuer:0000946581
+    feeds: []
+  - ticker: AMZN
+    company_name: "Amazon.com, Inc."
+    source_family_id: issuer:0001018724
+    feeds: []
+  - ticker: MSTR
+    company_name: "Strategy Inc Class A"
+    source_family_id: issuer:0001050446
+    feeds: []
+  - ticker: NVDA
+    company_name: "NVIDIA Corporation"
+    source_family_id: issuer:0001045810
+    feeds: []
+  - ticker: BKNG
+    company_name: "Booking Holdings Inc."
+    source_family_id: issuer:0001075531
+    feeds: []
+  - ticker: ISRG
+    company_name: "Intuitive Surgical, Inc."
+    source_family_id: issuer:0001035267
+    feeds: []
+  - ticker: MRVL
+    company_name: "Marvell Technology, Inc."
+    source_family_id: issuer:0001835632
+    feeds: []
+  - ticker: ADI
+    company_name: "Analog Devices, Inc."
+    source_family_id: issuer:0000006281
+    feeds: []
+  - ticker: AEP
+    company_name: "American Electric Power Company, Inc."
+    source_family_id: issuer:0000004904
+    feeds: []
+  - ticker: AMD
+    company_name: "Advanced Micro Devices, Inc."
+    source_family_id: issuer:0000002488
+    feeds: []
+  - ticker: ADP
+    company_name: "Automatic Data Processing, Inc."
+    source_family_id: issuer:0000008670
+    feeds: []
+  - ticker: CDNS
+    company_name: "Cadence Design Systems, Inc."
+    source_family_id: issuer:0000813672
+    feeds: []
+  - ticker: CSX
+    company_name: "CSX Corporation"
+    source_family_id: issuer:0000277948
+    feeds: []
+  - ticker: HON
+    company_name: "Honeywell International Inc."
+    source_family_id: issuer:0000773840
+    feeds: []
+  - ticker: MAR
+    company_name: "Marriott International Class A"
+    source_family_id: issuer:0001048286
+    feeds: []
+  - ticker: MU
+    company_name: "Micron Technology, Inc."
+    source_family_id: issuer:0000723125
+    feeds: []
+  - ticker: XEL
+    company_name: "Xcel Energy Inc."
+    source_family_id: issuer:0000072903
+    feeds: []
+  - ticker: EXC
+    company_name: "Exelon Corporation"
+    source_family_id: issuer:0001109357
+    feeds: []
+  - ticker: PEP
+    company_name: "PepsiCo, Inc."
+    source_family_id: issuer:0000077476
+    feeds: []
+  - ticker: ROP
+    company_name: "Roper Technologies, Inc."
+    source_family_id: issuer:0000882835
+    feeds: []
+  - ticker: TER
+    company_name: "Teradyne, Inc."
+    source_family_id: issuer:0000097210
+    feeds: []
+  - ticker: TXN
+    company_name: "Texas Instruments Incorporated"
+    source_family_id: issuer:0000097476
+    feeds: []
+  - ticker: WDC
+    company_name: "Western Digital Corporation"
+    source_family_id: issuer:0000106040
+    feeds: []
+  - ticker: WMT
+    company_name: "Walmart Inc."
+    source_family_id: issuer:0000104169
+    feeds: []
+  - ticker: AXON
+    company_name: "Axon Enterprise, Inc."
+    source_family_id: issuer:0001069183
+    feeds: []
+  - ticker: MDLZ
+    company_name: "Mondelez International, Inc. Class A"
+    source_family_id: issuer:0001103982
+    feeds: []
+  - ticker: NFLX
+    company_name: "Netflix, Inc."
+    source_family_id: issuer:0001065280
+    feeds: []
+  - ticker: STX
+    company_name: "Seagate Technology Holdings PLC (Ireland)"
+    source_family_id: issuer:0001137789
+    feeds: []
+  - ticker: ALNY
+    company_name: "Alnylam Pharmaceuticals, Inc."
+    source_family_id: issuer:0001178670
+    feeds: []
+  - ticker: GOOGL
+    company_name: "Alphabet Inc. Class A"
+    source_family_id: issuer:0001652044
+    feeds: []
+  - ticker: MPWR
+    company_name: "Monolithic Power Systems, Inc."
+    source_family_id: issuer:0001280452
+    feeds: []
+  - ticker: DXCM
+    company_name: "DexCom, Inc."
+    source_family_id: issuer:0001093557
+    feeds: []
+  - ticker: TMUS
+    company_name: "T-Mobile US, Inc."
+    source_family_id: issuer:0001283699
+    feeds: []
+  - ticker: MELI
+    company_name: "MercadoLibre, Inc."
+    source_family_id: issuer:0001099590
+    feeds: []
+  - ticker: KDP
+    company_name: "Keurig Dr Pepper Inc."
+    source_family_id: issuer:0001418135
+    feeds: []
+  - ticker: NBIS
+    company_name: "Nebius Group N.V. Class A"
+    source_family_id: issuer:0001513845
+    feeds: []
+  - ticker: AVGO
+    company_name: "Broadcom Inc."
+    source_family_id: issuer:0001730168
+    feeds: []
+  - ticker: FTNT
+    company_name: "Fortinet, Inc."
+    source_family_id: issuer:0001262039
+    feeds: []
+  - ticker: TSLA
+    company_name: "Tesla, Inc."
+    source_family_id: issuer:0001318605
+    feeds: []
+  - ticker: NXPI
+    company_name: "NXP Semiconductors N.V."
+    source_family_id: issuer:0001413447
+    feeds: []
+  - ticker: FANG
+    company_name: "Diamondback Energy, Inc."
+    source_family_id: issuer:0001539838
+    feeds: []
+  - ticker: META
+    company_name: "Meta Platforms, Inc. Class A"
+    source_family_id: issuer:0001326801
+    feeds: []
+  - ticker: PANW
+    company_name: "Palo Alto Networks, Inc."
+    source_family_id: issuer:0001327567
+    feeds: []
+  - ticker: WDAY
+    company_name: "Workday, Inc. Class A"
+    source_family_id: issuer:0001327811
+    feeds: []
+  - ticker: GOOG
+    company_name: "Alphabet Inc."
+    source_family_id: issuer:0001652044
+    feeds: []
+  - ticker: PYPL
+    company_name: "PayPal Holdings, Inc."
+    source_family_id: issuer:0001633917
+    feeds: []
+  - ticker: SHOP
+    company_name: "Shopify Inc. Class A Subordinate Voting Shares"
+    source_family_id: issuer:0001594805
+    feeds: []
+  - ticker: KHC
+    company_name: "The Kraft Heinz Company"
+    source_family_id: issuer:0001637459
+    feeds: []
+  - ticker: LITE
+    company_name: "Lumentum Holdings Inc."
+    source_family_id: issuer:0001633978
+    feeds: []
+  - ticker: CCEP
+    company_name: "Coca-Cola Europacific Partners plc"
+    source_family_id: issuer:0001650107
+    feeds: []
+  - ticker: BKR
+    company_name: "Baker Hughes Company Class A"
+    source_family_id: issuer:0001701605
+    feeds: []
+  - ticker: PDD
+    company_name: "PDD Holdings Inc."
+    source_family_id: issuer:0001737806
+    feeds: []
+  - ticker: CRWD
+    company_name: "CrowdStrike Holdings, Inc. Class A"
+    source_family_id: issuer:0001535527
+    feeds: []
+  - ticker: DDOG
+    company_name: "Datadog, Inc. Class A"
+    source_family_id: issuer:0001561550
+    feeds: []
+  - ticker: RKLB
+    company_name: "Rocket Lab Corporation"
+    source_family_id: issuer:0001819994
+    feeds: []
+  - ticker: PLTR
+    company_name: "Palantir Technologies Inc. Class A"
+    source_family_id: issuer:0001321655
+    feeds: []
+  - ticker: ABNB
+    company_name: "Airbnb, Inc. Class A"
+    source_family_id: issuer:0001559720
+    feeds: []
+  - ticker: DASH
+    company_name: "DoorDash, Inc. Class A"
+    source_family_id: issuer:0001792789
+    feeds: []
+  - ticker: APP
+    company_name: "Applovin Corporation Class A"
+    source_family_id: issuer:0001751008
+    feeds: []
+  - ticker: CEG
+    company_name: "Constellation Energy Corporation"
+    source_family_id: issuer:0001868275
+    feeds: []
+  - ticker: WBD
+    company_name: "Warner Bros. Discovery, Inc. Series A"
+    source_family_id: issuer:0001437107
+    feeds: []
+  - ticker: GEHC
+    company_name: "GE HealthCare Technologies Inc."
+    source_family_id: issuer:0001932393
+    feeds: []
+  - ticker: LIN
+    company_name: "Linde plc"
+    source_family_id: issuer:0001707925
+    feeds: []
+  - ticker: ARM
+    company_name: "Arm Holdings plc"
+    source_family_id: issuer:0001973239
+    feeds: []
+  - ticker: TRI
+    company_name: "Thomson Reuters Corporation"
+    source_family_id: issuer:0001075124
+    feeds: []
+  - ticker: FER
+    company_name: "Ferrovial N.V."
+    source_family_id: issuer:0001468522
+    feeds: []
+  - ticker: ALAB
+    company_name: "Astera Labs, Inc."
+    source_family_id: issuer:0001736297
+    feeds: []
+  - ticker: SNDK
+    company_name: "Sandisk Corporation"
+    source_family_id: issuer:0002023554
+    feeds: []
+  - ticker: CRWV
+    company_name: "CoreWeave, Inc. Class A"
+    source_family_id: issuer:0001769628
+    feeds: []

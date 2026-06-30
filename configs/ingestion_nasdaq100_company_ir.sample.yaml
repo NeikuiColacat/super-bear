@@ -1,0 +1,22 @@
+version: 1
+source_registry_path: configs/sources.yaml
+raw_dir: data/raw
+normalized_dir: data/normalized
+runs_dir: data/runs
+default_limit: null
+enabled_source_ids:
+  - company_ir
+skip_unimplemented_adapters: false
+write_chunks: true
+write_candidates: false
+write_ledger: false
+write_events: false
+write_event_cards: false
+write_brief: false
+source_options:
+  company_ir:
+    catalog_path: configs/company_ir_sources.yaml
+    continue_on_feed_error: true
+    request_timeout_seconds: 10
+    # Set this to the daily UTC window start before a production run.
+    published_after: "2026-06-29T00:00:00Z"

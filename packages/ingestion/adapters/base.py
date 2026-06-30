@@ -38,6 +38,7 @@ class AdapterBatch(BaseModel):
     retrieved_at: datetime
     records: tuple[dict[str, JsonValue], ...] = ()
     raw_uris: tuple[str, ...] = ()
+    warnings: tuple[AdapterError, ...] = ()
     error: AdapterError | None = None
 
     @classmethod
@@ -49,6 +50,7 @@ class AdapterBatch(BaseModel):
         records: list[dict[str, JsonValue]],
         retrieved_at: datetime,
         raw_uris: list[str] | None = None,
+        warnings: list[AdapterError] | None = None,
     ) -> AdapterBatch:
         return cls(
             source_id=source_id,
@@ -57,6 +59,7 @@ class AdapterBatch(BaseModel):
             records=tuple(records),
             retrieved_at=retrieved_at,
             raw_uris=tuple(raw_uris or ()),
+            warnings=tuple(warnings or ()),
         )
 
     @classmethod

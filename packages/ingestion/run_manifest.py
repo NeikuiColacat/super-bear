@@ -47,6 +47,7 @@ class RunSourceResult(BaseModel):
     raw_uris: tuple[str, ...] = ()
     output_path: str | None = None
     derived_outputs: tuple[RunDerivedOutput, ...] = ()
+    warnings: tuple[AdapterError, ...] = ()
     error: AdapterError | None = None
     skipped_reason: str | None = None
 
@@ -78,6 +79,7 @@ class RunSourceResult(BaseModel):
             if write_result.output_path
             else None,
             derived_outputs=derived_outputs,
+            warnings=batch.warnings,
             error=batch.error,
             skipped_reason=write_result.skipped_reason,
         )

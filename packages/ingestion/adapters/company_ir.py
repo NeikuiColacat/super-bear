@@ -6,10 +6,12 @@ from email.utils import parsedate_to_datetime
 from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
+import time
 import xml.etree.ElementTree as ET
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic import JsonValue
+import yaml
 
 from packages.core import (
     Document,
@@ -30,6 +32,7 @@ from .http import HttpAdapterError, fetch_bytes
 
 DEFAULT_REQUEST_TIMEOUT_SECONDS = 20.0
 FetchBytes = Callable[[str, Mapping[str, str], float], bytes]
+Sleep = Callable[[float], None]
 
 
 class CompanyIrFeedOptions(BaseModel):
@@ -51,7 +54,10 @@ class CompanyIrIssuerOptions(BaseModel):
 class CompanyIrFetchOptions(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    catalog_path: str | None = Field(default=None, min_length=1)
     issuers: tuple[CompanyIrIssuerOptions, ...] = ()
+    published_after: datetime | None = None
+    continue_on_feed_error: bool = True
     request_timeout_seconds: float = Field(
         default=DEFAULT_REQUEST_TIMEOUT_SECONDS,
         gt=0,
@@ -78,14 +84,19 @@ class CompanyIrAdapter(BaseSourceAdapter):
         raw_dir: str | Path | None = None,
         options: Mapping[str, object] | None = None,
         fetch_bytes: FetchBytes | None = None,
+        sleep: Sleep | None = None,
     ) -> None:
         super().__init__(source, raw_dir=raw_dir, options=options)
         self.fetch_options = CompanyIrFetchOptions.model_validate(self.options)
+        self.issuers = self.fetch_options.issuers + _load_catalog_issuers(
+            self.fetch_options.catalog_path
+        )
         self._fetch_bytes = fetch_bytes or _fetch_url_bytes
+        self._sleep = sleep or time.sleep
 
     def fetch(self, *, limit: int | None = None) -> AdapterBatch:
         retrieved_at = datetime.now(timezone.utc)
-        if not self.fetch_options.issuers:
+        if not self.issuers:
             return self._failure(
                 code="missing_source_options",
                 message="Company IR fetch requires at least one issuer",
@@ -103,9 +114,16 @@ class CompanyIrAdapter(BaseSourceAdapter):
         raw_store = RawStore(self.raw_dir)
         records: list[dict[str, JsonValue]] = []
         raw_uris: list[str] = []
+        warnings: list[AdapterError] = []
+        feed_errors = 0
+        feed_index = 0
+        successful_feeds = 0
 
-        for issuer in self.fetch_options.issuers:
+        for issuer in self.issuers:
             for feed in issuer.feeds:
+                if feed_index:
+                    self._sleep(1 / self.source.rate_limit_per_second)
+                feed_index += 1
                 try:
                     content = self._fetch_bytes(
                         feed.url,
@@ -113,19 +131,34 @@ class CompanyIrAdapter(BaseSourceAdapter):
                         self.fetch_options.request_timeout_seconds,
                     )
                 except HttpAdapterError as exc:
-                    return AdapterBatch.failure(
-                        source_id=self.source.source_id,
-                        output_kind=self.source.output_kind,
-                        retrieved_at=retrieved_at,
-                        error=exc.error,
-                    )
+                    if not self.fetch_options.continue_on_feed_error:
+                        return AdapterBatch.failure(
+                            source_id=self.source.source_id,
+                            output_kind=self.source.output_kind,
+                            retrieved_at=retrieved_at,
+                            error=exc.error,
+                        )
+                    feed_errors += 1
+                    warnings.append(exc.error)
+                    continue
                 except OSError as exc:
-                    return self._failure(
-                        code="network_error",
-                        message=f"Company IR request failed: {exc}",
-                        retrieved_at=retrieved_at,
-                        retryable=True,
+                    if not self.fetch_options.continue_on_feed_error:
+                        return self._failure(
+                            code="network_error",
+                            message=f"Company IR request failed: {exc}",
+                            retrieved_at=retrieved_at,
+                            retryable=True,
+                        )
+                    feed_errors += 1
+                    warnings.append(
+                        AdapterError(
+                            code="feed_error",
+                            message=f"Company IR feed failed for {issuer.ticker}: {exc}",
+                            retryable=True,
+                            details={"ticker": issuer.ticker, "url": feed.url},
+                        )
                     )
+                    continue
 
                 raw_result = raw_store.write_bytes(
                     Path(self.source.source_id)
@@ -134,14 +167,35 @@ class CompanyIrAdapter(BaseSourceAdapter):
                     content,
                 )
                 raw_uris.append(raw_result.raw_uri)
-                documents = _parse_feed_documents(
-                    content=content,
-                    feed=feed,
-                    issuer=issuer,
-                    source_id=self.source.source_id,
-                    raw_object_uri=raw_result.raw_uri,
-                    retrieved_at=retrieved_at,
-                )
+                try:
+                    documents = _parse_feed_documents(
+                        content=content,
+                        feed=feed,
+                        issuer=issuer,
+                        source_id=self.source.source_id,
+                        raw_object_uri=raw_result.raw_uri,
+                        retrieved_at=retrieved_at,
+                        published_after=self.fetch_options.published_after,
+                    )
+                except (ET.ParseError, ValueError) as exc:
+                    if not self.fetch_options.continue_on_feed_error:
+                        return self._failure(
+                            code="feed_parse_error",
+                            message=f"Company IR feed parse failed: {exc}",
+                            retrieved_at=retrieved_at,
+                            retryable=False,
+                        )
+                    feed_errors += 1
+                    warnings.append(
+                        AdapterError(
+                            code="feed_parse_error",
+                            message=f"Company IR feed parse failed for {issuer.ticker}: {exc}",
+                            retryable=False,
+                            details={"ticker": issuer.ticker, "url": feed.url},
+                        )
+                    )
+                    continue
+                successful_feeds += 1
                 for document in documents:
                     records.append(document.model_dump(mode="json"))
                     if limit is not None and len(records) >= limit:
@@ -150,14 +204,24 @@ class CompanyIrAdapter(BaseSourceAdapter):
                             output_kind=self.source.output_kind,
                             records=records,
                             raw_uris=raw_uris,
+                            warnings=warnings,
                             retrieved_at=retrieved_at,
                         )
+
+        if feed_errors and not records and successful_feeds == 0:
+            return self._failure(
+                code="all_feeds_failed",
+                message="All Company IR feed requests failed",
+                retrieved_at=retrieved_at,
+                retryable=True,
+            )
 
         return AdapterBatch.success(
             source_id=self.source.source_id,
             output_kind=self.source.output_kind,
             records=records,
             raw_uris=raw_uris,
+            warnings=warnings,
             retrieved_at=retrieved_at,
         )
 
@@ -186,6 +250,22 @@ def _fetch_url_bytes(url: str, headers: Mapping[str, str], timeout: float) -> by
     return content
 
 
+def _load_catalog_issuers(
+    catalog_path: str | None,
+) -> tuple[CompanyIrIssuerOptions, ...]:
+    if not catalog_path:
+        return ()
+    raw = yaml.safe_load(Path(catalog_path).read_text(encoding="utf-8"))
+    if not isinstance(raw, Mapping):
+        raise ValueError("Company IR catalog must contain a mapping")
+    if raw.get("version") != 1:
+        raise ValueError("Company IR catalog must use version: 1")
+    issuers = raw.get("issuers", [])
+    if not isinstance(issuers, list):
+        raise ValueError("Company IR catalog must contain an issuers list")
+    return tuple(CompanyIrIssuerOptions.model_validate(item) for item in issuers)
+
+
 def _request_headers() -> dict[str, str]:
     return {
         "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
@@ -201,6 +281,7 @@ def _parse_feed_documents(
     source_id: str,
     raw_object_uri: str,
     retrieved_at: datetime,
+    published_after: datetime | None = None,
 ) -> tuple[Document, ...]:
     root = ET.fromstring(content)
     items = _rss_items(root) or _atom_entries(root)
@@ -211,6 +292,8 @@ def _parse_feed_documents(
         if not title or not url:
             continue
         published_at = _entry_datetime(item) or retrieved_at
+        if published_after and published_at < published_after:
+            continue
         text = _entry_text(item) or title
         source_family_id = issuer.source_family_id or make_issuer_ticker_family_id(
             issuer.ticker

@@ -24,12 +24,8 @@ source_options:
     primary_document_limit: 1
     text_excerpt_chars: 500
   company_ir:
-    issuers:
-      - ticker: AAPL
-        company_name: Apple Inc.
-        feeds:
-          - url: https://www.apple.com/newsroom/rss-feed.rss
-            source_type: company_newsroom
+    catalog_path: configs/company_ir_sources.yaml
+    continue_on_feed_error: true
   yfinance:
     tickers:
       - AAPL

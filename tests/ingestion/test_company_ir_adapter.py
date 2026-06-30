@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 
 from packages.core import OutputKind, SourceTier, SourceType
 from packages.ingestion.adapters.company_ir import CompanyIrAdapter
@@ -128,6 +129,197 @@ def test_company_ir_adapter_requires_issuers_before_fetch(tmp_path) -> None:
     assert batch.ok is False
     assert batch.error is not None
     assert batch.error.code == "missing_source_options"
+
+
+def test_company_ir_adapter_loads_issuers_from_catalog_path(tmp_path) -> None:
+    catalog_path = tmp_path / "company_ir_sources.yaml"
+    catalog_path.write_text(
+        """
+version: 1
+universe: nasdaq100
+as_of: "2026-06-29"
+issuers:
+  - ticker: AAPL
+    company_name: Apple Inc.
+    source_family_id: issuer:0000320193
+    feeds:
+      - url: https://www.apple.com/newsroom/rss-feed.rss
+        source_type: company_newsroom
+""",
+        encoding="utf-8",
+    )
+    adapter = CompanyIrAdapter(
+        _registry().get("company_ir"),
+        raw_dir=tmp_path / "raw",
+        options={"catalog_path": str(catalog_path)},
+        fetch_bytes=lambda url, headers, timeout: RSS_FEED,
+    )
+
+    batch = adapter.fetch(limit=1)
+
+    assert batch.ok is True
+    assert len(batch.records) == 1
+    assert batch.records[0]["source_family_id"] == "issuer:0000320193"
+
+
+def test_company_ir_adapter_filters_old_feed_items_for_daily_runs(tmp_path) -> None:
+    adapter = CompanyIrAdapter(
+        _registry().get("company_ir"),
+        raw_dir=tmp_path / "raw",
+        options={
+            "published_after": datetime(2026, 6, 30, tzinfo=timezone.utc),
+            "issuers": [
+                {
+                    "ticker": "AAPL",
+                    "company_name": "Apple Inc.",
+                    "feeds": [
+                        {
+                            "url": "https://www.apple.com/newsroom/rss-feed.rss",
+                            "source_type": "company_newsroom",
+                        }
+                    ],
+                }
+            ],
+        },
+        fetch_bytes=lambda url, headers, timeout: RSS_FEED,
+    )
+
+    batch = adapter.fetch()
+
+    assert batch.ok is True
+    assert [record["title"] for record in batch.records] == [
+        "Apple announces product update"
+    ]
+
+
+def test_company_ir_adapter_continues_after_one_feed_failure(tmp_path) -> None:
+    def fake_fetch(url: str, headers: dict[str, str], timeout: float) -> bytes:
+        if "bad.example" in url:
+            raise OSError("temporary outage")
+        return RSS_FEED
+
+    adapter = CompanyIrAdapter(
+        _registry().get("company_ir"),
+        raw_dir=tmp_path / "raw",
+        options={
+            "issuers": [
+                {
+                    "ticker": "MSFT",
+                    "company_name": "Microsoft Corporation",
+                    "feeds": [
+                        {
+                            "url": "https://bad.example/rss",
+                            "source_type": "company_ir",
+                        }
+                    ],
+                },
+                {
+                    "ticker": "AAPL",
+                    "company_name": "Apple Inc.",
+                    "feeds": [
+                        {
+                            "url": "https://www.apple.com/newsroom/rss-feed.rss",
+                            "source_type": "company_newsroom",
+                        }
+                    ],
+                },
+            ]
+        },
+        fetch_bytes=fake_fetch,
+    )
+
+    batch = adapter.fetch(limit=1)
+
+    assert batch.ok is True
+    assert len(batch.records) == 1
+    assert batch.records[0]["entities"][0]["value"] == "AAPL"
+    assert batch.warnings[0].code == "feed_error"
+    assert batch.warnings[0].details["ticker"] == "MSFT"
+
+
+def test_company_ir_adapter_continues_after_one_parse_failure(tmp_path) -> None:
+    def fake_fetch(url: str, headers: dict[str, str], timeout: float) -> bytes:
+        if "bad.example" in url:
+            return b"<rss><channel><item></channel>"
+        return RSS_FEED
+
+    adapter = CompanyIrAdapter(
+        _registry().get("company_ir"),
+        raw_dir=tmp_path / "raw",
+        options={
+            "issuers": [
+                {
+                    "ticker": "MSFT",
+                    "company_name": "Microsoft Corporation",
+                    "feeds": [
+                        {
+                            "url": "https://bad.example/rss",
+                            "source_type": "company_ir",
+                        }
+                    ],
+                },
+                {
+                    "ticker": "AAPL",
+                    "company_name": "Apple Inc.",
+                    "feeds": [
+                        {
+                            "url": "https://www.apple.com/newsroom/rss-feed.rss",
+                            "source_type": "company_newsroom",
+                        }
+                    ],
+                },
+            ]
+        },
+        fetch_bytes=fake_fetch,
+    )
+
+    batch = adapter.fetch(limit=1)
+
+    assert batch.ok is True
+    assert len(batch.records) == 1
+    assert batch.records[0]["entities"][0]["value"] == "AAPL"
+    assert batch.warnings[0].code == "feed_parse_error"
+    assert batch.warnings[0].details["ticker"] == "MSFT"
+
+
+def test_company_ir_adapter_rate_limits_between_feed_requests(tmp_path) -> None:
+    sleeps: list[float] = []
+    urls: list[str] = []
+
+    def fake_fetch(url: str, headers: dict[str, str], timeout: float) -> bytes:
+        urls.append(url)
+        return RSS_FEED
+
+    adapter = CompanyIrAdapter(
+        _registry().get("company_ir"),
+        raw_dir=tmp_path / "raw",
+        options={
+            "issuers": [
+                {
+                    "ticker": "AAPL",
+                    "company_name": "Apple Inc.",
+                    "feeds": [
+                        {
+                            "url": "https://example.com/one.xml",
+                            "source_type": "company_newsroom",
+                        },
+                        {
+                            "url": "https://example.com/two.xml",
+                            "source_type": "company_newsroom",
+                        },
+                    ],
+                }
+            ]
+        },
+        fetch_bytes=fake_fetch,
+        sleep=sleeps.append,
+    )
+
+    batch = adapter.fetch()
+
+    assert batch.ok is True
+    assert urls == ["https://example.com/one.xml", "https://example.com/two.xml"]
+    assert sleeps == [1.0]
 
 
 def test_company_ir_runner_writes_documents_and_chunks(tmp_path) -> None:

@@ -72,6 +72,40 @@ def test_source_run_result_records_successful_adapter_batch() -> None:
     assert result.derived_outputs[1].skipped_reason == "no_records"
 
 
+def test_source_run_result_records_successful_batch_warnings() -> None:
+    registry = SourceRegistry.from_yaml("configs/sources.yaml")
+    source = registry.get("company_ir")
+    warning = AdapterError(
+        code="feed_error",
+        message="Company IR feed failed for MSFT",
+        retryable=True,
+        details={"ticker": "MSFT"},
+    )
+    batch = AdapterBatch.success(
+        source_id="company_ir",
+        output_kind=OutputKind.DOCUMENT,
+        retrieved_at=_ts(8, 1),
+        records=[{"doc_id": "company_ir:aapl:item"}],
+        raw_uris=["data/raw/company_ir/AAPL/feed.xml"],
+        warnings=[warning],
+    )
+    write_result = JsonlWriteResult(
+        source_id="company_ir",
+        output_kind=OutputKind.DOCUMENT,
+        output_path="data/normalized/documents.jsonl",
+        records_written=1,
+    )
+
+    result = RunSourceResult.from_batch(
+        source=source,
+        batch=batch,
+        write_result=write_result,
+    )
+
+    assert result.status is RunSourceStatus.SUCCESS
+    assert result.warnings == (warning,)
+
+
 def test_source_run_result_records_failed_adapter_batch_without_output() -> None:
     registry = SourceRegistry.from_yaml("configs/sources.yaml")
     source = registry.get("sec_edgar")
@@ -132,6 +166,37 @@ def test_run_manifest_writer_persists_auditable_json(tmp_path) -> None:
     assert payload["finished_at"] == "2026-06-27T08:02:00Z"
     assert payload["sources"][0]["status"] == "skipped"
     assert payload["sources"][0]["skipped_reason"] == "adapter_not_implemented"
+
+
+def test_run_manifest_writer_persists_source_warnings(tmp_path) -> None:
+    warning = AdapterError(
+        code="feed_error",
+        message="Company IR feed failed for MSFT",
+        retryable=True,
+        details={"ticker": "MSFT"},
+    )
+    manifest = RunManifest(
+        run_id="run_20260627T080000Z",
+        started_at=_ts(8, 0),
+        finished_at=_ts(8, 2),
+        sources=(
+            RunSourceResult(
+                source_id="company_ir",
+                adapter="company_ir",
+                output_kind=OutputKind.DOCUMENT,
+                status=RunSourceStatus.SUCCESS,
+                records_seen=1,
+                records_written=1,
+                warnings=(warning,),
+            ),
+        ),
+    )
+
+    output_path = RunManifestWriter(tmp_path).write(manifest)
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["sources"][0]["warnings"][0]["code"] == "feed_error"
+    assert payload["sources"][0]["warnings"][0]["details"] == {"ticker": "MSFT"}
 
 
 def test_run_manifest_requires_timezone_aware_timestamps() -> None:
