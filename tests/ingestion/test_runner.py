@@ -151,6 +151,47 @@ class ChunkingSecAdapter(BaseSourceAdapter):
         )
 
 
+class ChunkingCompanyIrAdapter(BaseSourceAdapter):
+    source_id = "company_ir"
+
+    def fetch(self, *, limit: int | None = None) -> AdapterBatch:
+        assert self.raw_dir is not None
+        raw_path = self.raw_dir / "company_ir" / "MSFT" / "earnings-release.html"
+        raw_path.parent.mkdir(parents=True, exist_ok=True)
+        raw_path.write_text(
+            """
+            <html>
+              <body>
+                <p>Microsoft revenue increased year over year.</p>
+              </body>
+            </html>
+            """,
+            encoding="utf-8",
+        )
+        document = Document(
+            doc_id=make_doc_id("ir", "MSFT", "earnings-release"),
+            source_id="company_ir",
+            source_type=SourceType.COMPANY_EARNINGS_RELEASE,
+            source_tier=SourceTier.COMPANY_PRIMARY,
+            source_family_id=make_issuer_family_id("0000789019"),
+            title="Microsoft earnings release",
+            url="https://www.microsoft.com/en-us/investor/earnings",
+            published_at=_ts(8, 5),
+            retrieved_at=_ts(8, 5),
+            raw_object_uri=str(raw_path),
+            content_hash=make_content_hash("microsoft earnings metadata"),
+            parser_version="company_ir_feed_v0.1",
+            metadata={"primary_document_raw_uri": str(raw_path)},
+        )
+        return AdapterBatch.success(
+            source_id=self.source.source_id,
+            output_kind=self.source.output_kind,
+            retrieved_at=_ts(8, 5),
+            records=[document.model_dump(mode="json")],
+            raw_uris=[str(raw_path)],
+        )
+
+
 def test_runner_executes_available_adapters_and_skips_unimplemented_sources(
     tmp_path,
 ) -> None:
@@ -684,3 +725,40 @@ def test_runner_can_write_event_cards_and_brief(tmp_path) -> None:
     assert {
         output.output_kind for output in result.manifest.sources[0].derived_outputs
     } >= {OutputKind.EVENT, OutputKind.EVENT_CARD, OutputKind.BRIEFING}
+
+
+def test_runner_writes_one_global_brief_across_document_sources(tmp_path) -> None:
+    registry = SourceRegistry.from_yaml("configs/sources.yaml")
+
+    run_ingestion(
+        registry=registry,
+        normalized_dir=tmp_path / "normalized",
+        raw_dir=tmp_path / "raw",
+        runs_dir=tmp_path / "runs",
+        run_id="run_20260628T080000Z",
+        adapter_classes={
+            "sec_edgar": ChunkingSecAdapter,
+            "company_ir": ChunkingCompanyIrAdapter,
+        },
+        source_ids=("sec_edgar", "company_ir"),
+        write_brief=True,
+        started_at=_ts(8, 0),
+        finished_at=_ts(8, 10),
+    )
+
+    cards = [
+        json.loads(line)
+        for line in (tmp_path / "normalized" / "event_cards.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    briefs = [
+        json.loads(line)
+        for line in (tmp_path / "normalized" / "briefings.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+
+    assert len(cards) == 2
+    assert len(briefs) == 1
+    assert briefs[0]["event_card_ids"] == [card["event_card_id"] for card in cards]

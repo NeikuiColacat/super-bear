@@ -60,3 +60,30 @@ def test_rule_stub_skips_chunks_without_material_keywords() -> None:
     )
 
     assert extract_candidate_pairs([chunk]) == ()
+
+
+def test_rule_stub_keeps_decimal_amounts_inside_sentence() -> None:
+    text = "Record revenue $7.10 billion, up 12 percent year over year."
+    chunk = DocumentChunk(
+        chunk_id="sec:apple:10q:chunk:000000",
+        doc_id="sec:apple:10q",
+        chunk_index=0,
+        text=text,
+        char_start=0,
+        char_end=len(text),
+        section_label="body",
+        content_hash=make_content_hash(text),
+        metadata={
+            "source_type": SourceType.SEC_FILING,
+            "source_tier": SourceTier.REGULATORY_PRIMARY,
+            "source_family_id": "issuer:0000320193",
+            "published_at": "2026-05-01T10:01:00Z",
+        },
+    )
+
+    pairs = extract_candidate_pairs([chunk])
+
+    assert len(pairs) == 1
+    claim, evidence = pairs[0]
+    assert claim.claim_text == text
+    assert evidence.text == text

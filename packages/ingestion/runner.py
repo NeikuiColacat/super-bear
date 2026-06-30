@@ -94,6 +94,10 @@ def run_ingestion(
     actual_started_at = started_at or datetime.now(timezone.utc)
     source_results: list[RunSourceResult] = []
     cli_previews: list[CliSourcePreview] = []
+    document_records_for_derivation: list[dict] = []
+    derivation_source_index: int | None = None
+    derivation_retrieved_at: datetime | None = None
+    records_by_source_index: dict[int, tuple[dict, ...]] = {}
 
     selected_source_ids = set(source_ids)
     enabled_sources = tuple(
@@ -135,200 +139,60 @@ def run_ingestion(
         )
         batch = adapter.fetch(limit=limit)
         write_result = writer.write_batch(batch)
-        derived_outputs: list[RunDerivedOutput] = []
-        chunk_records: list[dict] = []
+        source_index = len(source_results)
         if (
             (write_chunks or write_candidates or effective_write_ledger)
             and batch.ok
             and batch.output_kind is OutputKind.DOCUMENT
+            and batch.records
         ):
-            chunk_records = _build_document_chunk_records(
-                batch.records,
-                max_chars=chunk_max_chars,
-                overlap_chars=chunk_overlap_chars,
+            if derivation_source_index is None:
+                derivation_source_index = source_index
+            document_records_for_derivation.extend(batch.records)
+            derivation_retrieved_at = (
+                batch.retrieved_at
+                if derivation_retrieved_at is None
+                else max(derivation_retrieved_at, batch.retrieved_at)
             )
-            chunk_batch = AdapterBatch.success(
-                source_id=batch.source_id,
-                output_kind=OutputKind.DOCUMENT_CHUNK,
-                retrieved_at=batch.retrieved_at,
-                records=chunk_records,
-            )
-            chunk_write_result = writer.write_batch(chunk_batch)
-            derived_outputs.append(
-                RunDerivedOutput(
-                    output_kind=chunk_write_result.output_kind,
-                    output_path=(
-                        str(chunk_write_result.output_path)
-                        if chunk_write_result.output_path
-                        else None
-                    ),
-                    records_written=chunk_write_result.records_written,
-                    skipped_reason=chunk_write_result.skipped_reason,
-                )
-            )
-            claim_records: list[dict] = []
-            evidence_records: list[dict] = []
-            if write_candidates or effective_write_ledger:
-                claim_records, evidence_records = _build_candidate_records(
-                    chunk_records
-                )
-                for output_kind, records in (
-                    (OutputKind.CLAIM_CANDIDATE, claim_records),
-                    (OutputKind.EVIDENCE_SPAN_CANDIDATE, evidence_records),
-                ):
-                    candidate_batch = AdapterBatch.success(
-                        source_id=batch.source_id,
-                        output_kind=output_kind,
-                        retrieved_at=batch.retrieved_at,
-                        records=records,
-                    )
-                    candidate_write_result = writer.write_batch(candidate_batch)
-                    derived_outputs.append(
-                        RunDerivedOutput(
-                            output_kind=candidate_write_result.output_kind,
-                            output_path=(
-                                str(candidate_write_result.output_path)
-                                if candidate_write_result.output_path
-                                else None
-                            ),
-                            records_written=candidate_write_result.records_written,
-                            skipped_reason=candidate_write_result.skipped_reason,
-                        )
-                    )
-            if effective_write_ledger:
-                ledger = build_pre_event_ledger(
-                    claim_records=claim_records,
-                    evidence_records=evidence_records,
-                    chunk_records=chunk_records,
-                )
-                for output_kind, records in (
-                    (
-                        OutputKind.CLAIM,
-                        [claim.model_dump(mode="json") for claim in ledger.claims],
-                    ),
-                    (
-                        OutputKind.EVIDENCE_SPAN,
-                        [
-                            evidence.model_dump(mode="json")
-                            for evidence in ledger.evidence_spans
-                        ],
-                    ),
-                    (
-                        OutputKind.VALIDATION_ERROR,
-                        [
-                            error.model_dump(mode="json")
-                            for error in ledger.validation_errors
-                        ],
-                    ),
-                ):
-                    ledger_batch = AdapterBatch.success(
-                        source_id=batch.source_id,
-                        output_kind=output_kind,
-                        retrieved_at=batch.retrieved_at,
-                        records=records,
-                    )
-                    ledger_write_result = writer.write_batch(ledger_batch)
-                    derived_outputs.append(
-                        RunDerivedOutput(
-                            output_kind=ledger_write_result.output_kind,
-                            output_path=(
-                                str(ledger_write_result.output_path)
-                                if ledger_write_result.output_path
-                                else None
-                            ),
-                            records_written=ledger_write_result.records_written,
-                            skipped_reason=ledger_write_result.skipped_reason,
-                        )
-                    )
-                if effective_write_events:
-                    events = assemble_events(
-                        claims=ledger.claims,
-                        evidence_spans=ledger.evidence_spans,
-                    )
-                    event_records = [event.model_dump(mode="json") for event in events]
-                    event_batch = AdapterBatch.success(
-                        source_id=batch.source_id,
-                        output_kind=OutputKind.EVENT,
-                        retrieved_at=batch.retrieved_at,
-                        records=event_records,
-                    )
-                    event_write_result = writer.write_batch(event_batch)
-                    derived_outputs.append(
-                        RunDerivedOutput(
-                            output_kind=event_write_result.output_kind,
-                            output_path=(
-                                str(event_write_result.output_path)
-                                if event_write_result.output_path
-                                else None
-                            ),
-                            records_written=event_write_result.records_written,
-                            skipped_reason=event_write_result.skipped_reason,
-                        )
-                    )
-                    if write_event_cards or write_brief:
-                        cards = build_event_cards(
-                            events=events,
-                            claims=ledger.claims,
-                            evidence_spans=ledger.evidence_spans,
-                            created_at=batch.retrieved_at,
-                        )
-                        card_records = [card.model_dump(mode="json") for card in cards]
-                        card_batch = AdapterBatch.success(
-                            source_id=batch.source_id,
-                            output_kind=OutputKind.EVENT_CARD,
-                            retrieved_at=batch.retrieved_at,
-                            records=card_records,
-                        )
-                        card_write_result = writer.write_batch(card_batch)
-                        derived_outputs.append(
-                            RunDerivedOutput(
-                                output_kind=card_write_result.output_kind,
-                                output_path=(
-                                    str(card_write_result.output_path)
-                                    if card_write_result.output_path
-                                    else None
-                                ),
-                                records_written=card_write_result.records_written,
-                                skipped_reason=card_write_result.skipped_reason,
-                            )
-                        )
-                    if write_brief:
-                        brief = render_daily_brief(
-                            cards=cards,
-                            created_at=batch.retrieved_at,
-                        )
-                        brief_batch = AdapterBatch.success(
-                            source_id=batch.source_id,
-                            output_kind=OutputKind.BRIEFING,
-                            retrieved_at=batch.retrieved_at,
-                            records=[brief.model_dump(mode="json")],
-                        )
-                        brief_write_result = writer.write_batch(brief_batch)
-                        derived_outputs.append(
-                            RunDerivedOutput(
-                                output_kind=brief_write_result.output_kind,
-                                output_path=(
-                                    str(brief_write_result.output_path)
-                                    if brief_write_result.output_path
-                                    else None
-                                ),
-                                records_written=brief_write_result.records_written,
-                                skipped_reason=brief_write_result.skipped_reason,
-                            )
-                        )
+        records_by_source_index[source_index] = batch.records
         source_result = RunSourceResult.from_batch(
             source=source,
             batch=batch,
             write_result=write_result,
-            derived_outputs=tuple(derived_outputs),
         )
         source_results.append(source_result)
         cli_previews.append(
             build_cli_preview(
                 source_result,
                 records=batch.records,
-                chunk_records=chunk_records,
             )
+        )
+
+    if derivation_source_index is not None and derivation_retrieved_at is not None:
+        derived_outputs, chunk_records = _write_document_derived_outputs(
+            writer=writer,
+            source_id=source_results[derivation_source_index].source_id,
+            retrieved_at=derivation_retrieved_at,
+            records=tuple(document_records_for_derivation),
+            write_chunks=write_chunks,
+            write_candidates=write_candidates,
+            write_ledger=effective_write_ledger,
+            write_events=effective_write_events,
+            write_event_cards=write_event_cards or write_brief,
+            write_brief=write_brief,
+            chunk_max_chars=chunk_max_chars,
+            chunk_overlap_chars=chunk_overlap_chars,
+        )
+        # ponytail: run-level derived outputs live on the first document source
+        # until the manifest needs a real run-level derived_outputs field.
+        source_result = source_results[derivation_source_index].model_copy(
+            update={"derived_outputs": tuple(derived_outputs)}
+        )
+        source_results[derivation_source_index] = source_result
+        cli_previews[derivation_source_index] = build_cli_preview(
+            source_result,
+            records=records_by_source_index[derivation_source_index],
+            chunk_records=chunk_records,
         )
 
     manifest = RunManifest(
@@ -375,6 +239,162 @@ def _build_candidate_records(
     return (
         [claim.model_dump(mode="json") for claim, _evidence in pairs],
         [evidence.model_dump(mode="json") for _claim, evidence in pairs],
+    )
+
+
+def _write_document_derived_outputs(
+    *,
+    writer: JsonlWriter,
+    source_id: str,
+    retrieved_at: datetime,
+    records: tuple[dict, ...],
+    write_chunks: bool,
+    write_candidates: bool,
+    write_ledger: bool,
+    write_events: bool,
+    write_event_cards: bool,
+    write_brief: bool,
+    chunk_max_chars: int,
+    chunk_overlap_chars: int,
+) -> tuple[list[RunDerivedOutput], list[dict]]:
+    derived_outputs: list[RunDerivedOutput] = []
+
+    chunk_records = _build_document_chunk_records(
+        records,
+        max_chars=chunk_max_chars,
+        overlap_chars=chunk_overlap_chars,
+    )
+    if write_chunks or write_candidates or write_ledger:
+        derived_outputs.append(
+            _write_derived_batch(
+                writer=writer,
+                source_id=source_id,
+                output_kind=OutputKind.DOCUMENT_CHUNK,
+                retrieved_at=retrieved_at,
+                records=chunk_records,
+            )
+        )
+
+    claim_records: list[dict] = []
+    evidence_records: list[dict] = []
+    if write_candidates or write_ledger:
+        claim_records, evidence_records = _build_candidate_records(chunk_records)
+        for output_kind, derived_records in (
+            (OutputKind.CLAIM_CANDIDATE, claim_records),
+            (OutputKind.EVIDENCE_SPAN_CANDIDATE, evidence_records),
+        ):
+            derived_outputs.append(
+                _write_derived_batch(
+                    writer=writer,
+                    source_id=source_id,
+                    output_kind=output_kind,
+                    retrieved_at=retrieved_at,
+                    records=derived_records,
+                )
+            )
+
+    if write_ledger:
+        ledger = build_pre_event_ledger(
+            claim_records=claim_records,
+            evidence_records=evidence_records,
+            chunk_records=chunk_records,
+        )
+        for output_kind, derived_records in (
+            (
+                OutputKind.CLAIM,
+                [claim.model_dump(mode="json") for claim in ledger.claims],
+            ),
+            (
+                OutputKind.EVIDENCE_SPAN,
+                [
+                    evidence.model_dump(mode="json")
+                    for evidence in ledger.evidence_spans
+                ],
+            ),
+            (
+                OutputKind.VALIDATION_ERROR,
+                [error.model_dump(mode="json") for error in ledger.validation_errors],
+            ),
+        ):
+            derived_outputs.append(
+                _write_derived_batch(
+                    writer=writer,
+                    source_id=source_id,
+                    output_kind=output_kind,
+                    retrieved_at=retrieved_at,
+                    records=derived_records,
+                )
+            )
+
+        if write_events:
+            events = assemble_events(
+                claims=ledger.claims,
+                evidence_spans=ledger.evidence_spans,
+            )
+            derived_outputs.append(
+                _write_derived_batch(
+                    writer=writer,
+                    source_id=source_id,
+                    output_kind=OutputKind.EVENT,
+                    retrieved_at=retrieved_at,
+                    records=[event.model_dump(mode="json") for event in events],
+                )
+            )
+            if write_event_cards or write_brief:
+                cards = build_event_cards(
+                    events=events,
+                    claims=ledger.claims,
+                    evidence_spans=ledger.evidence_spans,
+                    created_at=retrieved_at,
+                )
+                derived_outputs.append(
+                    _write_derived_batch(
+                        writer=writer,
+                        source_id=source_id,
+                        output_kind=OutputKind.EVENT_CARD,
+                        retrieved_at=retrieved_at,
+                        records=[card.model_dump(mode="json") for card in cards],
+                    )
+                )
+            if write_brief:
+                brief = render_daily_brief(
+                    cards=cards,
+                    created_at=retrieved_at,
+                )
+                derived_outputs.append(
+                    _write_derived_batch(
+                        writer=writer,
+                        source_id=source_id,
+                        output_kind=OutputKind.BRIEFING,
+                        retrieved_at=retrieved_at,
+                        records=[brief.model_dump(mode="json")],
+                    )
+                )
+
+    return derived_outputs, chunk_records
+
+
+def _write_derived_batch(
+    *,
+    writer: JsonlWriter,
+    source_id: str,
+    output_kind: OutputKind,
+    retrieved_at: datetime,
+    records: list[dict],
+) -> RunDerivedOutput:
+    write_result = writer.write_batch(
+        AdapterBatch.success(
+            source_id=source_id,
+            output_kind=output_kind,
+            retrieved_at=retrieved_at,
+            records=records,
+        )
+    )
+    return RunDerivedOutput(
+        output_kind=write_result.output_kind,
+        output_path=str(write_result.output_path) if write_result.output_path else None,
+        records_written=write_result.records_written,
+        skipped_reason=write_result.skipped_reason,
     )
 
 

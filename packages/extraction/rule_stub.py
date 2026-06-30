@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import datetime, timezone
-import re
 
 from packages.core import (
     ClaimCandidate,
@@ -15,7 +14,6 @@ from packages.core import (
 )
 
 
-_SENTENCE = re.compile(r"[^.!?]+[.!?]?")
 _MATERIAL_KEYWORDS = (
     "acquisition",
     "cash",
@@ -75,12 +73,37 @@ def extract_candidate_pairs(
 
 
 def _iter_sentences(text: str) -> Iterable[tuple[int, str]]:
-    for match in _SENTENCE.finditer(text):
-        sentence = match.group(0)
+    start = 0
+    for index, char in enumerate(text):
+        if char not in ".!?":
+            continue
+        if _is_decimal_point(text, index):
+            continue
+        next_index = index + 1
+        if next_index < len(text) and not text[next_index].isspace():
+            continue
+        sentence = text[start:next_index]
         leading = len(sentence) - len(sentence.lstrip())
         stripped = sentence.strip()
         if stripped:
-            yield match.start() + leading, stripped
+            yield start + leading, stripped
+        start = next_index
+
+    sentence = text[start:]
+    leading = len(sentence) - len(sentence.lstrip())
+    stripped = sentence.strip()
+    if stripped:
+        yield start + leading, stripped
+
+
+def _is_decimal_point(text: str, index: int) -> bool:
+    return (
+        text[index] == "."
+        and index > 0
+        and index + 1 < len(text)
+        and text[index - 1].isdigit()
+        and text[index + 1].isdigit()
+    )
 
 
 def _looks_material(sentence: str) -> bool:
