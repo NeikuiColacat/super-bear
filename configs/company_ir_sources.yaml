@@ -64,7 +64,9 @@ issuers:
   - ticker: MSFT
     company_name: "Microsoft Corporation"
     source_family_id: issuer:0000789019
-    feeds: []
+    feeds:
+      - url: https://news.microsoft.com/source/feed/
+        source_type: company_newsroom
   - ticker: ADBE
     company_name: "Adobe Inc."
     source_family_id: issuer:0000796343
@@ -144,7 +146,9 @@ issuers:
   - ticker: AMZN
     company_name: "Amazon.com, Inc."
     source_family_id: issuer:0001018724
-    feeds: []
+    feeds:
+      - url: https://www.aboutamazon.com/rss/feed.rss
+        source_type: company_newsroom
   - ticker: MSTR
     company_name: "Strategy Inc Class A"
     source_family_id: issuer:0001050446
@@ -152,7 +156,9 @@ issuers:
   - ticker: NVDA
     company_name: "NVIDIA Corporation"
     source_family_id: issuer:0001045810
-    feeds: []
+    feeds:
+      - url: https://nvidianews.nvidia.com/cats/press_release.xml
+        source_type: company_newsroom
   - ticker: BKNG
     company_name: "Booking Holdings Inc."
     source_family_id: issuer:0001075531
@@ -176,7 +182,9 @@ issuers:
   - ticker: AMD
     company_name: "Advanced Micro Devices, Inc."
     source_family_id: issuer:0000002488
-    feeds: []
+    feeds:
+      - url: https://ir.amd.com/news-events/press-releases/rss
+        source_type: company_ir
   - ticker: ADP
     company_name: "Automatic Data Processing, Inc."
     source_family_id: issuer:0000008670
@@ -244,7 +252,9 @@ issuers:
   - ticker: NFLX
     company_name: "Netflix, Inc."
     source_family_id: issuer:0001065280
-    feeds: []
+    feeds:
+      - url: https://ir.netflix.net/rss/PressRelease.aspx
+        source_type: company_ir
   - ticker: STX
     company_name: "Seagate Technology Holdings PLC (Ireland)"
     source_family_id: issuer:0001137789
@@ -256,7 +266,9 @@ issuers:
   - ticker: GOOGL
     company_name: "Alphabet Inc. Class A"
     source_family_id: issuer:0001652044
-    feeds: []
+    feeds:
+      - url: https://blog.google/alphabet/rss/
+        source_type: company_newsroom
   - ticker: MPWR
     company_name: "Monolithic Power Systems, Inc."
     source_family_id: issuer:0001280452
@@ -284,7 +296,9 @@ issuers:
   - ticker: AVGO
     company_name: "Broadcom Inc."
     source_family_id: issuer:0001730168
-    feeds: []
+    feeds:
+      - url: https://investors.broadcom.com/rss/news-releases.xml
+        source_type: company_ir
   - ticker: FTNT
     company_name: "Fortinet, Inc."
     source_family_id: issuer:0001262039
@@ -304,7 +318,9 @@ issuers:
   - ticker: META
     company_name: "Meta Platforms, Inc. Class A"
     source_family_id: issuer:0001326801
-    feeds: []
+    feeds:
+      - url: https://investor.atmeta.com/rss/pressrelease.aspx
+        source_type: company_ir
   - ticker: PANW
     company_name: "Palo Alto Networks, Inc."
     source_family_id: issuer:0001327567

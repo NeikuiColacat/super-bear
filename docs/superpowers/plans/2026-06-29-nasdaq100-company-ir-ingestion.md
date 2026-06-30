@@ -129,6 +129,10 @@ number of official HTML patterns fail to cover the daily use case.
 - [ ] Add official RSS/Atom feeds where verified.
 - [x] Mark unresolved issuers with `feeds: []` until verified.
 
+Verified feed batches:
+
+- 2026-06-30: added MSFT, NVDA, AMZN, META, GOOGL, AVGO, AMD, and NFLX.
+
 ### Task 4: Coverage Audit
 
 - [x] Add a lightweight report that counts issuers, feeds, source types, and missing CIKs.

@@ -71,7 +71,11 @@ def test_repo_company_ir_catalog_has_nasdaq100_seed_skeleton() -> None:
     assert audit.universe == "nasdaq100"
     assert audit.issuer_count == 101
     assert audit.unique_ticker_count == 101
-    assert audit.feed_count == 1
+    assert audit.feed_count == 9
+    assert audit.source_type_counts == {
+        "company_ir": 4,
+        "company_newsroom": 5,
+    }
     assert audit.missing_cik_tickers == ()
     assert audit.duplicate_tickers == ()
-    assert len(audit.missing_feed_tickers) == 100
+    assert len(audit.missing_feed_tickers) == 92

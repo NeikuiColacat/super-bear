@@ -7,6 +7,7 @@ from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
 import time
+from urllib.parse import urljoin
 import xml.etree.ElementTree as ET
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -288,7 +289,7 @@ def _parse_feed_documents(
     documents: list[Document] = []
     for item in items:
         title = _child_text(item, "title")
-        url = _entry_url(item)
+        url = _entry_url(item, feed.url)
         if not title or not url:
             continue
         published_at = _entry_datetime(item) or retrieved_at
@@ -337,11 +338,12 @@ def _atom_entries(root: ET.Element) -> tuple[ET.Element, ...]:
     return tuple(child for child in root if _local_name(child.tag) == "entry")
 
 
-def _entry_url(item: ET.Element) -> str:
+def _entry_url(item: ET.Element, base_url: str) -> str:
     link = _child(item, "link")
     if link is None:
         return ""
-    return link.attrib.get("href", "").strip() or (link.text or "").strip()
+    raw_url = link.attrib.get("href", "").strip() or (link.text or "").strip()
+    return urljoin(base_url, raw_url)
 
 
 def _entry_datetime(item: ET.Element) -> datetime | None:

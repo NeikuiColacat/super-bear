@@ -44,6 +44,21 @@ ATOM_FEED = b"""<?xml version="1.0" encoding="UTF-8" ?>
 """
 
 
+RELATIVE_LINK_FEED = b"""<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0">
+  <channel>
+    <title>Netflix Investor Relations</title>
+    <item>
+      <title>Netflix releases investor document</title>
+      <link>/files/doc_news/2026/release.pdf</link>
+      <pubDate>Mon, 29 Jun 2026 13:00:00 GMT</pubDate>
+      <description>Investor document.</description>
+    </item>
+  </channel>
+</rss>
+"""
+
+
 def _registry() -> SourceRegistry:
     return SourceRegistry.from_yaml("configs/sources.yaml")
 
@@ -113,6 +128,35 @@ def test_company_ir_adapter_parses_atom_feed_to_documents(tmp_path) -> None:
     assert batch.records[0]["title"] == "NVIDIA announces quarterly results"
     assert batch.records[0]["metadata"]["primary_document_text"] == (
         "NVIDIA reported revenue growth."
+    )
+
+
+def test_company_ir_adapter_resolves_relative_feed_links(tmp_path) -> None:
+    adapter = CompanyIrAdapter(
+        _registry().get("company_ir"),
+        raw_dir=tmp_path / "raw",
+        options={
+            "issuers": [
+                {
+                    "ticker": "NFLX",
+                    "company_name": "Netflix, Inc.",
+                    "feeds": [
+                        {
+                            "url": "https://ir.netflix.net/rss/PressRelease.aspx",
+                            "source_type": "company_ir",
+                        }
+                    ],
+                }
+            ]
+        },
+        fetch_bytes=lambda url, headers, timeout: RELATIVE_LINK_FEED,
+    )
+
+    batch = adapter.fetch(limit=1)
+
+    assert batch.ok is True
+    assert batch.records[0]["url"] == (
+        "https://ir.netflix.net/files/doc_news/2026/release.pdf"
     )
 
 
