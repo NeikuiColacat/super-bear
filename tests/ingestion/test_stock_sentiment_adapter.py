@@ -39,22 +39,23 @@ def test_stock_sentiment_maps_metrics_to_attention_signals(
         headers: dict[str, str],
         timeout: float,
     ) -> dict[str, object]:
-        assert "NVDA" in url
-        assert headers["Authorization"] == "Bearer secret"
+        assert url.endswith("/reddit/stocks/v1/stock/NVDA?days=1")
+        assert headers["X-API-Key"] == "secret"
+        assert "Authorization" not in headers
         return {
             "window_start": "2026-06-28T00:00:00Z",
             "window_end": "2026-06-29T00:00:00Z",
-            "sample_size": 128,
-            "metrics": {
-                "mentions": 128,
-                "sentiment_score": 0.71,
-            },
+            "found": True,
+            "mentions": 128,
+            "sentiment_score": 0.71,
+            "buzz_score": 64.0,
+            "trend": "rising",
         }
 
     adapter = StockSentimentAdapter(
         _registry().get("stock_sentiment"),
         raw_dir=tmp_path / "raw",
-        options={"tickers": ["NVDA"], "sources": ["reddit"], "lookback": "24h"},
+        options={"tickers": ["NVDA"], "sources": ["reddit"], "days": 1},
         fetch_json=fake_fetch,
     )
 
@@ -62,7 +63,7 @@ def test_stock_sentiment_maps_metrics_to_attention_signals(
 
     assert batch.ok is True
     assert batch.output_kind is OutputKind.ATTENTION_SIGNAL
-    assert len(batch.records) == 2
+    assert len(batch.records) == 3
     first = batch.records[0]
     assert first["source_type"] == SourceType.SOCIAL_SENTIMENT
     assert first["source_tier"] == SourceTier.ATTENTION_SIGNAL
@@ -71,6 +72,71 @@ def test_stock_sentiment_maps_metrics_to_attention_signals(
     assert first["signal_family"] == "reddit"
     assert first["metric_name"] == "mentions"
     assert first["sample_size"] == 128
+    assert {record["metric_name"] for record in batch.records} == {
+        "buzz_score",
+        "mentions",
+        "sentiment_score",
+    }
+    assert first["metadata"]["days"] == 1
+    assert first["metadata"]["evidence_role"] == "attention_signal_only"
+
+
+def test_stock_sentiment_can_use_reproducible_date_window(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("STOCK_SENTIMENT_API_KEY", "secret")
+
+    def fake_fetch(
+        url: str,
+        headers: dict[str, str],
+        timeout: float,
+    ) -> dict[str, object]:
+        assert url.endswith(
+            "/reddit/stocks/v1/stock/NVDA?from=2026-06-28&to=2026-06-29"
+        )
+        return {"mentions": 128}
+
+    adapter = StockSentimentAdapter(
+        _registry().get("stock_sentiment"),
+        raw_dir=tmp_path / "raw",
+        options={
+            "tickers": ["NVDA"],
+            "sources": ["reddit"],
+            "from": "2026-06-28",
+            "to": "2026-06-29",
+        },
+        fetch_json=fake_fetch,
+    )
+
+    batch = adapter.fetch()
+
+    assert batch.ok is True
+    assert batch.records[0]["metadata"]["from"] == "2026-06-28"
+    assert batch.records[0]["metadata"]["to"] == "2026-06-29"
+
+
+def test_stock_sentiment_uses_daily_trend_date_as_window(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("STOCK_SENTIMENT_API_KEY", "secret")
+
+    adapter = StockSentimentAdapter(
+        _registry().get("stock_sentiment"),
+        raw_dir=tmp_path / "raw",
+        options={"tickers": ["AAPL"], "sources": ["reddit"], "days": 1},
+        fetch_json=lambda url, headers, timeout: {
+            "mentions": 129,
+            "daily_trend": [{"date": "2026-06-30"}],
+        },
+    )
+
+    batch = adapter.fetch()
+
+    assert batch.ok is True
+    assert batch.records[0]["window_start"] == "2026-06-30T00:00:00Z"
+    assert batch.records[0]["window_end"] == "2026-07-01T00:00:00Z"
 
 
 def test_stock_sentiment_runner_does_not_create_ledger_outputs(

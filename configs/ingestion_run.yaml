@@ -9,7 +9,6 @@ enabled_source_ids:
   - company_ir
   - yfinance
   - tavily
-  - brave_search
   - stock_sentiment
 skip_unimplemented_adapters: true
 write_ledger: false
@@ -48,4 +47,4 @@ source_options:
       - AAPL
     sources:
       - reddit
-    lookback: 24h
+    days: 1

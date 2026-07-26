@@ -7,7 +7,8 @@ from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
 import time
-from urllib.parse import urljoin
+from typing import NamedTuple
+from urllib.parse import urljoin, urlparse
 import xml.etree.ElementTree as ET
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -59,6 +60,7 @@ class CompanyIrFetchOptions(BaseModel):
     issuers: tuple[CompanyIrIssuerOptions, ...] = ()
     published_after: datetime | None = None
     continue_on_feed_error: bool = True
+    fetch_item_pages: bool = False
     request_timeout_seconds: float = Field(
         default=DEFAULT_REQUEST_TIMEOUT_SECONDS,
         gt=0,
@@ -73,6 +75,13 @@ class _HtmlTextExtractor(HTMLParser):
     def handle_data(self, data: str) -> None:
         if data.strip():
             self.parts.append(data.strip())
+
+
+class _FeedParseResult(NamedTuple):
+    documents: tuple[Document, ...]
+    raw_item_count: int
+    filtered_by_published_after_count: int
+    latest_item_published_at: datetime | None
 
 
 class CompanyIrAdapter(BaseSourceAdapter):
@@ -169,7 +178,7 @@ class CompanyIrAdapter(BaseSourceAdapter):
                 )
                 raw_uris.append(raw_result.raw_uri)
                 try:
-                    documents = _parse_feed_documents(
+                    parse_result = _parse_feed_documents(
                         content=content,
                         feed=feed,
                         issuer=issuer,
@@ -197,7 +206,44 @@ class CompanyIrAdapter(BaseSourceAdapter):
                     )
                     continue
                 successful_feeds += 1
-                for document in documents:
+                if parse_result.raw_item_count and not parse_result.documents:
+                    details: dict[str, JsonValue] = {
+                        "ticker": issuer.ticker,
+                        "url": feed.url,
+                        "raw_item_count": parse_result.raw_item_count,
+                        "filtered_by_published_after_count": (
+                            parse_result.filtered_by_published_after_count
+                        ),
+                        "records_written": 0,
+                    }
+                    if parse_result.latest_item_published_at is not None:
+                        details["latest_item_published_at"] = _format_utc_z(
+                            parse_result.latest_item_published_at
+                        )
+                    warnings.append(
+                        AdapterError(
+                            code="feed_no_records",
+                            message=(
+                                "Company IR feed produced no records for "
+                                f"{issuer.ticker}"
+                            ),
+                            retryable=False,
+                            details=details,
+                        )
+                    )
+                for document in parse_result.documents:
+                    if self.fetch_options.fetch_item_pages:
+                        document = self._with_item_page_raw(
+                            document=document,
+                            raw_store=raw_store,
+                            ticker=issuer.ticker,
+                            warnings=warnings,
+                        )
+                        primary_raw_uri = document.metadata.get(
+                            "primary_document_raw_uri"
+                        )
+                        if isinstance(primary_raw_uri, str):
+                            raw_uris.append(primary_raw_uri)
                     records.append(document.model_dump(mode="json"))
                     if limit is not None and len(records) >= limit:
                         return AdapterBatch.success(
@@ -241,6 +287,54 @@ class CompanyIrAdapter(BaseSourceAdapter):
             error=AdapterError(code=code, message=message, retryable=retryable),
         )
 
+    def _with_item_page_raw(
+        self,
+        *,
+        document: Document,
+        raw_store: RawStore,
+        ticker: str,
+        warnings: list[AdapterError],
+    ) -> Document:
+        try:
+            self._sleep(1 / self.source.rate_limit_per_second)
+            content = self._fetch_bytes(
+                str(document.url),
+                _request_headers(),
+                self.fetch_options.request_timeout_seconds,
+            )
+        except HttpAdapterError as exc:
+            warnings.append(exc.error)
+            return document
+        except OSError as exc:
+            warnings.append(
+                AdapterError(
+                    code="item_page_fetch_error",
+                    message=f"Company IR item page failed for {ticker}: {exc}",
+                    retryable=True,
+                    details={"ticker": ticker, "url": str(document.url)},
+                )
+            )
+            return document
+
+        result = raw_store.write_bytes(
+            Path(self.source.source_id)
+            / ticker
+            / f"{make_content_hash(str(document.url))[7:23]}{_raw_suffix(str(document.url), content)}",
+            content,
+        )
+        return document.model_copy(
+            update={
+                "raw_object_uri": result.raw_uri,
+                "content_hash": result.content_hash,
+                "metadata": {
+                    **document.metadata,
+                    "feed_raw_object_uri": document.raw_object_uri,
+                    "primary_document_raw_uri": result.raw_uri,
+                    "primary_document_content_hash": result.content_hash,
+                },
+            }
+        )
+
 
 def _fetch_url_bytes(url: str, headers: Mapping[str, str], timeout: float) -> bytes:
     content, _response = fetch_bytes(
@@ -274,6 +368,15 @@ def _request_headers() -> dict[str, str]:
     }
 
 
+def _raw_suffix(url: str, content: bytes) -> str:
+    suffix = Path(urlparse(url).path).suffix.lower()
+    if suffix in {".htm", ".html", ".pdf", ".txt", ".xml", ".json"}:
+        return suffix
+    if content.lstrip().startswith(b"%PDF-"):
+        return ".pdf"
+    return ".html"
+
+
 def _parse_feed_documents(
     *,
     content: bytes,
@@ -283,17 +386,22 @@ def _parse_feed_documents(
     raw_object_uri: str,
     retrieved_at: datetime,
     published_after: datetime | None = None,
-) -> tuple[Document, ...]:
+) -> _FeedParseResult:
     root = ET.fromstring(content)
     items = _rss_items(root) or _atom_entries(root)
     documents: list[Document] = []
+    filtered_by_published_after_count = 0
+    latest_item_published_at: datetime | None = None
     for item in items:
         title = _child_text(item, "title")
         url = _entry_url(item, feed.url)
+        published_at = _entry_datetime(item) or retrieved_at
+        if latest_item_published_at is None or published_at > latest_item_published_at:
+            latest_item_published_at = published_at
         if not title or not url:
             continue
-        published_at = _entry_datetime(item) or retrieved_at
         if published_after and published_at < published_after:
+            filtered_by_published_after_count += 1
             continue
         text = _entry_text(item) or title
         source_family_id = issuer.source_family_id or make_issuer_ticker_family_id(
@@ -327,7 +435,16 @@ def _parse_feed_documents(
             },
         )
         documents.append(document)
-    return tuple(documents)
+    return _FeedParseResult(
+        documents=tuple(documents),
+        raw_item_count=len(items),
+        filtered_by_published_after_count=filtered_by_published_after_count,
+        latest_item_published_at=latest_item_published_at,
+    )
+
+
+def _format_utc_z(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _rss_items(root: ET.Element) -> tuple[ET.Element, ...]:

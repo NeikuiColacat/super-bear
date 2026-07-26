@@ -19,7 +19,6 @@ def test_ingestion_run_config_loads_yaml_template() -> None:
         "company_ir",
         "yfinance",
         "tavily",
-        "brave_search",
         "stock_sentiment",
     )
     assert config.skip_unimplemented_adapters is True
@@ -37,7 +36,6 @@ def test_ingestion_run_config_loads_yaml_template() -> None:
     )
     assert config.source_options["yfinance"]["tickers"] == ["AAPL"]
     assert config.source_options["tavily"]["queries"]
-    assert config.source_options["brave_search"]["queries"]
     assert config.source_options["stock_sentiment"]["tickers"] == ["AAPL"]
 
 

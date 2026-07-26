@@ -30,6 +30,7 @@ def parse_sec_submissions_bytes(
     retrieved_at: datetime,
     include_forms: tuple[str, ...] = DEFAULT_SEC_DOCUMENT_FORMS,
     source_id: str = "sec_edgar",
+    published_after: datetime | None = None,
     limit: int | None = None,
 ) -> tuple[Document, ...]:
     payload = json.loads(content)
@@ -55,6 +56,8 @@ def parse_sec_submissions_bytes(
             _recent_text(recent, "acceptanceDateTime", index),
             fallback_date=filing_date,
         )
+        if published_after and published_at < published_after:
+            continue
         document = Document(
             doc_id=make_doc_id("sec", cik, accession_number, primary_document),
             source_id=source_id,

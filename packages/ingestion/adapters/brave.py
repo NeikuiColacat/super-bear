@@ -33,6 +33,7 @@ class BraveFetchOptions(BaseModel):
     queries: tuple[str, ...] = ()
     count: int = Field(default=5, ge=1, le=20)
     freshness: str | None = None
+    text_decorations: bool = False
     request_timeout_seconds: float = Field(default=20.0, gt=0)
 
 
@@ -84,6 +85,7 @@ class BraveSearchAdapter(BaseSourceAdapter):
                 query=query,
                 count=self.fetch_options.count,
                 freshness=self.fetch_options.freshness,
+                text_decorations=self.fetch_options.text_decorations,
             )
             try:
                 payload = self._fetch_json(
@@ -173,8 +175,13 @@ def _search_url(
     query: str,
     count: int,
     freshness: str | None,
+    text_decorations: bool,
 ) -> str:
-    params: dict[str, str | int] = {"q": query, "count": count}
+    params: dict[str, str | int] = {
+        "q": query,
+        "count": count,
+        "text_decorations": str(text_decorations).lower(),
+    }
     if freshness:
         params["freshness"] = freshness
     return f"{base_url}/res/v1/web/search?{urlencode(params)}"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from html.parser import HTMLParser
 from pathlib import Path
 import re
 
@@ -15,6 +16,31 @@ DEFAULT_CHUNK_OVERLAP_CHARS = 150
 
 _WHITESPACE = re.compile(r"\s+")
 _SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])\s+")
+_IGNORED_ARTICLE_TAGS = {
+    "footer",
+    "header",
+    "nav",
+    "noscript",
+    "script",
+    "style",
+    "svg",
+}
+_VOID_HTML_TAGS = {
+    "area",
+    "base",
+    "br",
+    "col",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "link",
+    "meta",
+    "param",
+    "source",
+    "track",
+    "wbr",
+}
 
 
 class ExtractedText(BaseModel):
@@ -33,7 +59,14 @@ def extract_text_for_chunking(record: Mapping[str, object]) -> ExtractedText | N
     if isinstance(raw_uri, str) and raw_uri.strip():
         raw_path = Path(raw_uri)
         if raw_path.is_file():
-            text = extract_sec_filing_text(raw_path.read_bytes())
+            raw_content = raw_path.read_bytes()
+            text = (
+                _extract_article_text(raw_content)
+                if record.get("source_id") == "company_ir"
+                else ""
+            )
+            if not text:
+                text = extract_sec_filing_text(raw_content)
             if text:
                 return ExtractedText(
                     text=text,
@@ -72,6 +105,7 @@ def chunk_document_record(
         return ()
 
     chunk_metadata = {
+        "document_title": document.title,
         "text_source": extracted.source,
         "source_type": document.source_type,
         "source_tier": document.source_tier,
@@ -81,6 +115,10 @@ def chunk_document_record(
     form = document.metadata.get("form")
     if isinstance(form, str) and form:
         chunk_metadata["form"] = form
+    for key in ("primary_document_raw_uri", "primary_document_content_hash"):
+        value = document.metadata.get(key)
+        if isinstance(value, str) and value:
+            chunk_metadata[key] = value
 
     return chunk_text(
         document=document,
@@ -138,7 +176,11 @@ def chunk_text(
         if char_end >= len(text):
             break
 
-        next_start = char_end - overlap_chars if overlap_chars else char_end
+        next_start = (
+            _advance_to_word_boundary(text, char_end - overlap_chars)
+            if overlap_chars
+            else char_end
+        )
         if next_start <= start:
             next_start = char_end
         start = _skip_whitespace(text, next_start)
@@ -179,6 +221,16 @@ def _skip_whitespace(text: str, index: int) -> int:
     return index
 
 
+def _advance_to_word_boundary(text: str, index: int) -> int:
+    if index <= 0 or index >= len(text):
+        return index
+    if text[index].isspace() or text[index - 1].isspace():
+        return _skip_whitespace(text, index)
+    while index < len(text) and not text[index].isspace():
+        index += 1
+    return _skip_whitespace(text, index)
+
+
 def _trim_trailing_whitespace(text: str, index: int) -> int:
     while index > 0 and text[index - 1].isspace():
         index -= 1
@@ -189,3 +241,68 @@ def _text_value(value: object) -> str:
     if not isinstance(value, str):
         return ""
     return value.strip()
+
+
+class _ArticleTextParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.article_depth = 0
+        self.ignored_depth = 0
+        self.tag_stack: list[tuple[str, bool, bool]] = []
+        self.parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        tag_name = tag.lower()
+        if tag_name in _VOID_HTML_TAGS:
+            return
+        entered_article = tag_name == "article"
+        entered_ignored = tag_name in _IGNORED_ARTICLE_TAGS
+        if entered_article:
+            self.article_depth += 1
+        if entered_ignored:
+            self.ignored_depth += 1
+        self.tag_stack.append((tag_name, entered_article, entered_ignored))
+
+    def handle_endtag(self, tag: str) -> None:
+        tag_name = tag.lower()
+        matching_index = next(
+            (
+                index
+                for index in range(len(self.tag_stack) - 1, -1, -1)
+                if self.tag_stack[index][0] == tag_name
+            ),
+            None,
+        )
+        if matching_index is None:
+            return
+        for _tag_name, entered_article, entered_ignored in self.tag_stack[
+            matching_index:
+        ]:
+            if entered_article and self.article_depth:
+                self.article_depth -= 1
+            if entered_ignored and self.ignored_depth:
+                self.ignored_depth -= 1
+        del self.tag_stack[matching_index:]
+
+    def handle_startendtag(
+        self,
+        tag: str,
+        attrs: list[tuple[str, str | None]],
+    ) -> None:
+        if tag.lower() in _VOID_HTML_TAGS:
+            return
+        self.handle_starttag(tag, attrs)
+        self.handle_endtag(tag)
+
+    def handle_data(self, data: str) -> None:
+        if self.article_depth and not self.ignored_depth and data.strip():
+            self.parts.append(data.strip())
+
+    def text(self) -> str:
+        return _WHITESPACE.sub(" ", " ".join(self.parts)).strip()
+
+
+def _extract_article_text(content: bytes) -> str:
+    parser = _ArticleTextParser()
+    parser.feed(content.decode("utf-8", errors="replace"))
+    return parser.text()

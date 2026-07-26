@@ -78,6 +78,23 @@ def test_chunk_text_can_overlap_without_breaking_offsets() -> None:
         assert text[current.char_start : current.char_end] == current.text
 
 
+def test_chunk_text_overlap_does_not_start_in_the_middle_of_a_word() -> None:
+    document = _document()
+    text = "Alpha revenue increased materially. Beta revenue increased materially."
+
+    chunks = chunk_text(
+        document=document,
+        text=text,
+        max_chars=38,
+        overlap_chars=8,
+    )
+
+    assert len(chunks) > 1
+    for chunk in chunks[1:]:
+        assert text[chunk.char_start - 1].isspace()
+        assert text[chunk.char_start : chunk.char_end] == chunk.text
+
+
 def test_extract_text_for_chunking_prefers_primary_raw_html(tmp_path) -> None:
     raw_path = tmp_path / "raw" / "sec_edgar" / "0000320193" / "filing.htm"
     raw_path.parent.mkdir(parents=True)
@@ -106,6 +123,38 @@ def test_extract_text_for_chunking_prefers_primary_raw_html(tmp_path) -> None:
     assert "fallback excerpt" not in extracted.text
 
 
+def test_extract_text_for_chunking_prefers_company_ir_article_body(tmp_path) -> None:
+    raw_path = tmp_path / "apple-newsroom.html"
+    raw_path.write_text(
+        """
+        <html>
+          <body>
+            <nav><img src="/logo.svg">Apple Store Mac iPad iPhone Watch</nav>
+            <article>
+              <h1>Apple announces services update</h1>
+              <p>Apple said revenue increased year over year.</p>
+            </article>
+            <footer>Copyright and support links</footer>
+          </body>
+        </html>
+        """,
+        encoding="utf-8",
+    )
+    record = _document().model_dump(mode="json")
+    record["source_id"] = "company_ir"
+    record["source_type"] = "company_newsroom"
+    record["source_tier"] = "company_primary"
+    record["source_family_id"] = "issuer:0000320193"
+    record["metadata"]["primary_document_raw_uri"] = str(raw_path)
+
+    extracted = extract_text_for_chunking(record)
+
+    assert extracted is not None
+    assert extracted.text.startswith("Apple announces services update")
+    assert "Apple Store Mac" not in extracted.text
+    assert "Copyright and support" not in extracted.text
+
+
 def test_chunk_document_record_uses_available_text_and_keeps_document_provenance(
     tmp_path,
 ) -> None:
@@ -122,6 +171,8 @@ def test_chunk_document_record_uses_available_text_and_keeps_document_provenance
     assert len(chunks) == 2
     assert all(chunk.doc_id == record["doc_id"] for chunk in chunks)
     assert chunks[0].metadata["text_source"] == "metadata.primary_document_raw_uri"
+    assert chunks[0].metadata["document_title"] == record["title"]
+    assert chunks[0].metadata["primary_document_raw_uri"] == str(raw_path)
     source_text = extract_text_for_chunking(record).text
     for chunk in chunks:
         assert source_text[chunk.char_start : chunk.char_end] == chunk.text

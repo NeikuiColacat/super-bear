@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SEC EDGAR 本地抓取结果预览</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #5b6776;
+      --line: #d9e1ea;
+      --bg: #f7f9fb;
+      --panel: #ffffff;
+      --accent: #0f766e;
+      --warn: #9a3412;
+      --code: #102a43;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    main {
+      width: min(1120px, calc(100vw - 40px));
+      margin: 0 auto;
+      padding: 36px 0 56px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.2;
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 30px;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      font-size: 21px;
+      margin-top: 34px;
+    }
+
+    h3 {
+      font-size: 16px;
+      margin-top: 18px;
+    }
+
+    p {
+      margin: 10px 0 0;
+      color: var(--muted);
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin-top: 16px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 15px;
+      min-height: 104px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 27px;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      display: table;
+    }
+
+    th,
+    td {
+      text-align: left;
+      vertical-align: top;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+    }
+
+    th {
+      color: var(--muted);
+      background: #eef3f7;
+      font-weight: 650;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code,
+    pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    code {
+      color: var(--code);
+      background: #edf2f7;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 14px;
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #0f172a;
+      color: #dbeafe;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .note {
+      border-left: 4px solid var(--warn);
+      padding: 12px 14px;
+      background: #fff7ed;
+      color: #7c2d12;
+      border-radius: 6px;
+      margin-top: 14px;
+    }
+
+    .ok {
+      border-left-color: var(--accent);
+      background: #ecfdf5;
+      color: #065f46;
+    }
+
+    .flow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .step {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+      padding: 9px 11px;
+      color: var(--code);
+      font-size: 13px;
+    }
+
+    a {
+      color: #0f5f9f;
+      word-break: break-all;
+    }
+
+    @media (max-width: 820px) {
+      main {
+        width: min(100vw - 24px, 1120px);
+        padding-top: 24px;
+      }
+
+      .summary {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      table {
+        display: block;
+        overflow-x: auto;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .summary {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>SEC EDGAR 本地抓取结果预览</h1>
+    <p>
+      结论：当前 SEC adapter 已经能抓到有用数据。它能抓 Apple 的 SEC submissions JSON，
+      转成统一 <code>Document</code> 记录，并且已经成功抓过 1 份 10-Q 原始 HTML。
+    </p>
+
+    <div class="note">
+      本页没有重新联网请求 SEC。当前 shell 里没有设置 <code>SEC_USER_AGENT</code>，
+      所以这里展示的是仓库本地已有 smoke run 产物。
+    </div>
+
+    <section class="summary" aria-label="SEC local data summary">
+      <div class="metric">
+        <strong>159</strong>
+        <span>按 <code>doc_id</code> 去重后的最新 SEC Document 数量</span>
+      </div>
+      <div class="metric">
+        <strong>795</strong>
+        <span><code>documents.jsonl</code> 里的累计行数，包含多次追加式 smoke run</span>
+      </div>
+      <div class="metric">
+        <strong>977 KB</strong>
+        <span>已保存的 Apple 10-Q 原始 HTML 文件大小</span>
+      </div>
+      <div class="metric">
+        <strong>84,747</strong>
+        <span>从该 10-Q HTML 提取出的纯文本字符数</span>
+      </div>
+    </section>
+
+    <h2>本地文件长什么样</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>文件</th>
+          <th>内容</th>
+          <th>用途</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>data/raw/sec_edgar/0000320193/submissions.json</code></td>
+          <td>Apple Inc. 的 SEC submissions 原始 JSON，约 161 KB。</td>
+          <td>保留 SEC 原始响应，用来审计、重跑 parser、生成标准化 Document。</td>
+        </tr>
+        <tr>
+          <td><code>data/raw/sec_edgar/0000320193/000032019326000013/aapl-20260328.htm</code></td>
+          <td>Apple 2026-05-01 filed 10-Q 原始 HTML，约 977 KB。</td>
+          <td>后续切 chunk、定位 evidence span、做 claim 证据引用。</td>
+        </tr>
+        <tr>
+          <td><code>data/normalized/documents.jsonl</code></td>
+          <td>统一 schema 后的 Document JSONL，当前累计 795 行，最新唯一文档 159 条。</td>
+          <td>下游 extraction、event assembly、ledger 的输入。</td>
+        </tr>
+        <tr>
+          <td><code>data/runs/run_20260628T_sec_primary_html_smoke_fixed/manifest.json</code></td>
+          <td>一次成功运行的 RunManifest。</td>
+          <td>记录抓取状态、写入数量、raw URI、output path。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>SEC submissions 原始 JSON 样子</h2>
+    <p>
+      原始 JSON 里首先是公司级信息，例如公司名、CIK、ticker、交易所；然后是 recent filings 数组。
+      最新几条原始 filing 可能是 Form 4、SD、144 等。我们的 parser 暂时只筛出
+      <code>8-K</code>、<code>10-Q</code>、<code>10-K</code>、<code>DEF 14A</code>
+      这类对事件分析更有用的文档。
+    </p>
+
+    <pre>{
+  "name": "Apple Inc.",
+  "cik": "0000320193",
+  "tickers": ["AAPL"],
+  "exchanges": ["Nasdaq"]
+}</pre>
+
+    <table>
+      <thead>
+        <tr>
+          <th>form</th>
+          <th>filingDate</th>
+          <th>accessionNumber</th>
+          <th>primaryDocument</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>4</code></td>
+          <td>2026-06-17</td>
+          <td><code>0001140361-26-025622</code></td>
+          <td><code>xslF345X06/form4.xml</code></td>
+        </tr>
+        <tr>
+          <td><code>SD</code></td>
+          <td>2026-05-28</td>
+          <td><code>0001140361-26-023149</code></td>
+          <td><code>ef20073373_sd.htm</code></td>
+        </tr>
+        <tr>
+          <td><code>144</code></td>
+          <td>2026-05-27</td>
+          <td><code>0001921094-26-000555</code></td>
+          <td><code>xsl144X01/primary_doc.xml</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>标准化后的 Document 样子</h2>
+    <p>
+      去重后的最新 Document 分布：<code>8-K: 104</code>、
+      <code>10-Q: 33</code>、<code>10-K: 11</code>、<code>DEF 14A: 11</code>。
+      下面是几条已经标准化的记录。
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>title</th>
+          <th>form</th>
+          <th>filing date</th>
+          <th>items</th>
+          <th>accession</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Apple Inc. 10-Q filed 2026-05-01</td>
+          <td><code>10-Q</code></td>
+          <td>2026-05-01</td>
+          <td></td>
+          <td><code>0000320193-26-000013</code></td>
+        </tr>
+        <tr>
+          <td>Apple Inc. 8-K filed 2026-04-30</td>
+          <td><code>8-K</code></td>
+          <td>2026-04-30</td>
+          <td><code>2.02,9.01</code></td>
+          <td><code>0000320193-26-000011</code></td>
+        </tr>
+        <tr>
+          <td>Apple Inc. 8-K filed 2026-04-20</td>
+          <td><code>8-K</code></td>
+          <td>2026-04-20</td>
+          <td><code>5.02</code></td>
+          <td><code>0001140361-26-015711</code></td>
+        </tr>
+        <tr>
+          <td>Apple Inc. 10-Q filed 2026-01-30</td>
+          <td><code>10-Q</code></td>
+          <td>2026-01-30</td>
+          <td></td>
+          <td><code>0000320193-26-000006</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>一条 Document JSON 示例</h3>
+    <pre>{
+  "doc_id": "sec:0000320193:0000320193-26-000013:aapl-20260328.htm",
+  "source_id": "sec_edgar",
+  "source_type": "sec_filing",
+  "source_tier": "regulatory_primary",
+  "source_family_id": "issuer:0000320193",
+  "title": "Apple Inc. 10-Q filed 2026-05-01",
+  "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000013/aapl-20260328.htm",
+  "published_at": "2026-05-01T10:01:00Z",
+  "retrieved_at": "2026-06-28T09:05:27.092164Z",
+  "raw_object_uri": "data/raw/sec_edgar/0000320193/submissions.json",
+  "content_hash": "sha256:ea2aa552e984a29e920cf80e0827cf32b632563935f029b6ec9de7f4fa3c026d",
+  "metadata": {
+    "form": "10-Q",
+    "filing_date": "2026-05-01",
+    "report_date": "2026-03-28",
+    "accession_number": "0000320193-26-000013",
+    "primary_document": "aapl-20260328.htm",
+    "primary_document_raw_uri": "data/raw/sec_edgar/0000320193/000032019326000013/aapl-20260328.htm"
+  }
+}</pre>
+
+    <h2>原始 10-Q HTML 里有什么</h2>
+    <p>
+      已保存的 10-Q HTML 能解析出约 84,747 个纯文本字符。它不是只抓到链接或标题，
+      而是拿到了可以继续切 chunk、定位 span 的 filing 正文。短预览如下：
+    </p>
+    <pre>aapl-20260328
+UNITED STATES SECURITIES AND EXCHANGE COMMISSION
+FORM 10-Q
+Apple Inc.</pre>
+
+    <h2>RunManifest 记录</h2>
+    <p>
+      这次成功 smoke run 的 manifest 表明：SEC adapter 看到了 159 条记录，写入 159 条，
+      同时保存了 submissions JSON 和 1 份 primary filing HTML。
+    </p>
+    <pre>{
+  "run_id": "run_20260628T_sec_primary_html_smoke_fixed",
+  "source_id": "sec_edgar",
+  "status": "success",
+  "records_seen": 159,
+  "records_written": 159,
+  "output_path": "data/normalized/documents.jsonl",
+  "raw_uris": [
+    "data/raw/sec_edgar/0000320193/submissions.json",
+    "data/raw/sec_edgar/0000320193/000032019326000013/aapl-20260328.htm"
+  ]
+}</pre>
+
+    <h2>现在能给下游提供什么</h2>
+    <div class="flow">
+      <div class="step">SEC raw JSON</div>
+      <div class="step">Document</div>
+      <div class="step">primary HTML</div>
+      <div class="step">Chunk</div>
+      <div class="step">Span</div>
+      <div class="step">Claim / Evidence</div>
+      <div class="step">Event</div>
+      <div class="step">EventCard</div>
+    </div>
+    <div class="note ok">
+      可用结论：SEC 这条线已经不是空架子。它能拿到 filings 列表、标准化 Document、
+      保存 raw 文件，并且至少能抓取和解析 primary filing HTML。
+    </div>
+    <div class="note">
+      还没完全跑顺的地方：当前只抓了 1 份 primary HTML 作为 smoke 测试；
+      真正进入 extraction 前，建议下一步做一个小型 SEC pipeline run：
+      指定 <code>AAPL</code>，抓最近 3 到 5 份核心 filing，输出 chunk/span 预览。
+    </div>
+  </main>
+</body>
+</html>

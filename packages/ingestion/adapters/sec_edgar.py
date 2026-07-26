@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import time
 from typing import Callable
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -22,6 +23,7 @@ ARCHIVES_BASE_URL = "https://www.sec.gov/Archives/edgar/data"
 DEFAULT_REQUEST_TIMEOUT_SECONDS = 20.0
 
 FetchBytes = Callable[[str, dict[str, str], float], bytes]
+Sleep = Callable[[float], None]
 
 
 def normalize_cik(cik: str | int) -> str:
@@ -92,6 +94,8 @@ class SecEdgarFetchOptions(BaseModel):
 
     ciks: tuple[str, ...] = ()
     include_forms: tuple[str, ...] = ()
+    published_after: datetime | None = None
+    max_filings_per_cik: int | None = Field(default=None, ge=1)
     fetch_primary_documents: bool = False
     primary_document_limit: int = Field(default=1, ge=1)
     text_excerpt_chars: int = Field(default=500, ge=0, le=5000)
@@ -112,10 +116,12 @@ class SecEdgarAdapter(BaseSourceAdapter):
         raw_dir: str | Path | None = None,
         options: Mapping[str, object] | None = None,
         fetch_bytes: FetchBytes | None = None,
+        sleep: Sleep | None = None,
     ) -> None:
         super().__init__(source, raw_dir=raw_dir, options=options)
         self.fetch_options = SecEdgarFetchOptions.model_validate(self.options)
         self._fetch_bytes = fetch_bytes or fetch_url_bytes
+        self._sleep = sleep or time.sleep
 
     def fetch(self, *, limit: int | None = None) -> AdapterBatch:
         retrieved_at = datetime.now(timezone.utc)
@@ -171,14 +177,23 @@ class SecEdgarAdapter(BaseSourceAdapter):
             else 0
         )
 
+        request_count = 0
+
+        def fetch_content(url: str) -> bytes:
+            nonlocal request_count
+            if request_count:
+                self._sleep(1 / self.source.rate_limit_per_second)
+            request_count += 1
+            return self._fetch_bytes(
+                url,
+                headers,
+                self.fetch_options.request_timeout_seconds,
+            )
+
         for cik in ciks:
             url = build_submissions_url(cik)
             try:
-                content = self._fetch_bytes(
-                    url,
-                    headers,
-                    self.fetch_options.request_timeout_seconds,
-                )
+                content = fetch_content(url)
                 json.loads(content)
                 result = raw_store.write_bytes(
                     Path(self.source.source_id) / cik / "submissions.json",
@@ -200,16 +215,14 @@ class SecEdgarAdapter(BaseSourceAdapter):
                     retrieved_at=retrieved_at,
                     include_forms=include_forms,
                     source_id=self.source.source_id,
+                    published_after=self.fetch_options.published_after,
+                    limit=self.fetch_options.max_filings_per_cik,
                 )
                 for document in documents:
                     record = document.model_dump(mode="json")
                     if primary_documents_remaining:
                         url = str(document.url)
-                        html_content = self._fetch_bytes(
-                            url,
-                            headers,
-                            self.fetch_options.request_timeout_seconds,
-                        )
+                        html_content = fetch_content(url)
                         self._attach_primary_document_artifact(
                             record=record,
                             cik=cik,

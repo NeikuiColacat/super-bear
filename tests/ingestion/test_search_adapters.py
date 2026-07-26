@@ -1,4 +1,5 @@
 import json
+from urllib.parse import parse_qs, urlparse
 
 from packages.core import OutputKind, SourceTier, SourceType
 from packages.ingestion.adapters.brave import BraveSearchAdapter
@@ -73,6 +74,77 @@ def test_tavily_adapter_maps_results_to_search_leads(tmp_path, monkeypatch) -> N
     assert batch.raw_uris[0].endswith(".json")
 
 
+def test_tavily_adapter_passes_domain_filters(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("TAVILY_API_KEY", "secret")
+
+    def fake_post(
+        url: str,
+        headers: dict[str, str],
+        payload: dict[str, object],
+        timeout: float,
+    ) -> dict[str, object]:
+        assert payload["include_domains"] == ["apple.com", "sec.gov"]
+        assert payload["exclude_domains"] == ["example.com"]
+        return {"results": []}
+
+    adapter = TavilySearchAdapter(
+        _registry().get("tavily"),
+        raw_dir=tmp_path / "raw",
+        options={
+            "queries": ["AAPL official earnings"],
+            "include_domains": ["apple.com", "sec.gov"],
+            "exclude_domains": ["example.com"],
+        },
+        post_json=fake_post,
+    )
+
+    batch = adapter.fetch()
+
+    assert batch.ok is True
+
+
+def test_tavily_adapter_enforces_domain_filters_locally(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("TAVILY_API_KEY", "secret")
+
+    def fake_post(
+        url: str,
+        headers: dict[str, str],
+        payload: dict[str, object],
+        timeout: float,
+    ) -> dict[str, object]:
+        return {
+            "results": [
+                {
+                    "title": "Apple Nasdaq quote",
+                    "url": "https://www.nasdaq.com/market-activity/stocks/aapl",
+                    "content": "Apple stock quote page.",
+                },
+                {
+                    "title": "Apple Newsroom",
+                    "url": "https://www.apple.com/newsroom/",
+                    "content": "Apple official newsroom.",
+                },
+            ]
+        }
+
+    adapter = TavilySearchAdapter(
+        _registry().get("tavily"),
+        raw_dir=tmp_path / "raw",
+        options={
+            "queries": ["AAPL official news"],
+            "include_domains": ["apple.com"],
+        },
+        post_json=fake_post,
+    )
+
+    batch = adapter.fetch()
+
+    assert batch.ok is True
+    assert [record["url"] for record in batch.records] == [
+        "https://www.apple.com/newsroom/"
+    ]
+
+
 def test_brave_adapter_requires_api_key_before_network(tmp_path, monkeypatch) -> None:
     monkeypatch.delenv("BRAVE_SEARCH_API_KEY", raising=False)
     adapter = BraveSearchAdapter(
@@ -100,6 +172,8 @@ def test_brave_adapter_maps_results_to_search_leads(tmp_path, monkeypatch) -> No
         timeout: float,
     ) -> dict[str, object]:
         assert url.startswith("https://api.search.brave.com/res/v1/web/search?")
+        params = parse_qs(urlparse(url).query)
+        assert params["text_decorations"] == ["false"]
         assert headers["X-Subscription-Token"] == "secret"
         return {
             "web": {

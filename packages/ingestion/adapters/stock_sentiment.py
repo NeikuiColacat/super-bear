@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import json
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
@@ -28,11 +28,13 @@ FetchJson = Callable[[str, dict[str, str], float], dict[str, Any]]
 
 
 class StockSentimentFetchOptions(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
 
     tickers: tuple[str, ...] = ()
     sources: tuple[str, ...] = ("reddit",)
-    lookback: str = Field(default="24h", min_length=1)
+    days: int | None = Field(default=1, ge=1, le=365)
+    date_from: date | None = Field(default=None, alias="from")
+    date_to: date | None = Field(default=None, alias="to")
     endpoint_template: str | None = None
     request_timeout_seconds: float = Field(default=20.0, gt=0)
 
@@ -85,7 +87,7 @@ class StockSentimentAdapter(BaseSourceAdapter):
                 try:
                     payload = self._fetch_json(
                         url,
-                        {"Authorization": f"Bearer {api_key}"},
+                        {"X-API-Key": api_key},
                         self.fetch_options.request_timeout_seconds,
                     )
                 except HttpAdapterError as exc:
@@ -103,6 +105,7 @@ class StockSentimentAdapter(BaseSourceAdapter):
                     raw_bytes,
                 )
                 raw_uris.append(raw_result.raw_uri)
+                window_start, window_end = _window_bounds(payload, retrieved_at)
                 for metric_name, metric_value in _metrics(payload):
                     signal = AttentionSignal(
                         attention_signal_id=make_doc_id(
@@ -118,17 +121,15 @@ class StockSentimentAdapter(BaseSourceAdapter):
                         source_family_id=make_provider_family_id(self.source.source_id),
                         ticker=ticker,
                         signal_family=signal_family,
-                        window_start=_parse_datetime(payload.get("window_start"))
-                        or retrieved_at,
-                        window_end=_parse_datetime(payload.get("window_end"))
-                        or retrieved_at,
+                        window_start=window_start,
+                        window_end=window_end,
                         retrieved_at=retrieved_at,
                         metric_name=metric_name,
                         metric_value=metric_value,
                         sample_size=_sample_size(payload),
                         raw_object_uri=raw_result.raw_uri,
                         content_hash=raw_result.content_hash,
-                        metadata={"lookback": self.fetch_options.lookback},
+                        metadata=self._metadata(),
                     )
                     records.append(signal.model_dump(mode="json"))
 
@@ -143,15 +144,41 @@ class StockSentimentAdapter(BaseSourceAdapter):
     def _endpoint(self, *, ticker: str, signal_family: str) -> str:
         template = self.fetch_options.endpoint_template
         if template is None:
-            template = (
-                "{base_url}/v1/{signal_family}/stocks/{ticker}?lookback={lookback}"
-            )
+            template = "{base_url}/{signal_family}/stocks/v1/stock/{ticker}?{query}"
         return template.format(
-            base_url=str(self.source.base_url).rstrip("/"),
-            ticker=quote(ticker),
-            signal_family=quote(signal_family),
-            lookback=quote(self.fetch_options.lookback),
+            **{
+                "base_url": str(self.source.base_url).rstrip("/"),
+                "ticker": quote(ticker),
+                "signal_family": quote(signal_family),
+                "query": urlencode(self._query_params()),
+            }
         )
+
+    def _query_params(self) -> dict[str, str | int]:
+        if self.fetch_options.date_from or self.fetch_options.date_to:
+            params: dict[str, str | int] = {}
+            if self.fetch_options.date_from:
+                params["from"] = self.fetch_options.date_from.isoformat()
+            if self.fetch_options.date_to:
+                params["to"] = self.fetch_options.date_to.isoformat()
+            return params
+        if self.fetch_options.days is None:
+            return {}
+        return {"days": self.fetch_options.days}
+
+    def _metadata(self) -> dict[str, JsonValue]:
+        metadata: dict[str, JsonValue] = {
+            "evidence_role": "attention_signal_only",
+        }
+        if self.fetch_options.date_from:
+            metadata["from"] = self.fetch_options.date_from.isoformat()
+        if self.fetch_options.date_to:
+            metadata["to"] = self.fetch_options.date_to.isoformat()
+        if self.fetch_options.days is not None and not (
+            self.fetch_options.date_from or self.fetch_options.date_to
+        ):
+            metadata["days"] = self.fetch_options.days
+        return metadata
 
     def _from_http_error(
         self,
@@ -198,21 +225,59 @@ def _metrics(payload: Mapping[str, Any]) -> list[tuple[str, float]]:
     metrics = payload.get("metrics", payload)
     if not isinstance(metrics, Mapping):
         return []
-    skipped = {"sample_size", "window_start", "window_end"}
+    skipped = {"sample_size", "window_start", "window_end", "found", "period_days"}
     return [
         (str(key), float(value))
         for key, value in metrics.items()
-        if key not in skipped and isinstance(value, int | float)
+        if key not in skipped
+        and not isinstance(value, bool)
+        and isinstance(value, int | float)
     ]
 
 
 def _sample_size(payload: Mapping[str, Any]) -> int | None:
-    value = payload.get("sample_size")
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float):
-        return int(value)
+    for key in ("sample_size", "mentions"):
+        value = payload.get(key)
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            return int(value)
     return None
+
+
+def _window_bounds(
+    payload: Mapping[str, Any],
+    retrieved_at: datetime,
+) -> tuple[datetime, datetime]:
+    window_start = _parse_datetime(payload.get("window_start"))
+    window_end = _parse_datetime(payload.get("window_end"))
+    if window_start and window_end:
+        return window_start, window_end
+
+    daily_trend = payload.get("daily_trend")
+    if isinstance(daily_trend, list) and daily_trend:
+        dates = [
+            parsed_date
+            for item in daily_trend
+            if isinstance(item, Mapping)
+            if isinstance(item.get("date"), str)
+            if (parsed_date := _parse_date(item["date"])) is not None
+        ]
+        if dates:
+            start = datetime.combine(min(dates), datetime.min.time(), timezone.utc)
+            end = datetime.combine(max(dates), datetime.min.time(), timezone.utc)
+            return start, end + timedelta(days=1)
+
+    return window_start or retrieved_at, window_end or retrieved_at
+
+
+def _parse_date(value: str) -> date | None:
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
 
 
 def _parse_datetime(value: object) -> datetime | None:

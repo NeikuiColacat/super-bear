@@ -160,6 +160,57 @@ def test_company_ir_adapter_resolves_relative_feed_links(tmp_path) -> None:
     )
 
 
+def test_company_ir_adapter_can_store_item_page_as_primary_raw(tmp_path) -> None:
+    requests: list[str] = []
+    sleeps: list[float] = []
+
+    def fake_fetch(url: str, headers: dict[str, str], timeout: float) -> bytes:
+        requests.append(url)
+        if url == "https://www.apple.com/newsroom/rss-feed.rss":
+            return RSS_FEED
+        return (
+            b"<html><body>Detailed results page says revenue increased.</body></html>"
+        )
+
+    adapter = CompanyIrAdapter(
+        _registry().get("company_ir"),
+        raw_dir=tmp_path / "raw",
+        options={
+            "fetch_item_pages": True,
+            "issuers": [
+                {
+                    "ticker": "AAPL",
+                    "company_name": "Apple Inc.",
+                    "feeds": [
+                        {
+                            "url": "https://www.apple.com/newsroom/rss-feed.rss",
+                            "source_type": "company_newsroom",
+                        }
+                    ],
+                }
+            ],
+        },
+        fetch_bytes=fake_fetch,
+        sleep=sleeps.append,
+    )
+
+    batch = adapter.fetch(limit=1)
+
+    assert batch.ok is True
+    assert requests == [
+        "https://www.apple.com/newsroom/rss-feed.rss",
+        "https://www.apple.com/newsroom/2026/results/",
+    ]
+    assert sleeps == [1.0]
+    record = batch.records[0]
+    metadata = record["metadata"]
+    assert record["raw_object_uri"].endswith(".html")
+    assert metadata["feed_raw_object_uri"].endswith(".xml")
+    assert metadata["primary_document_raw_uri"] == record["raw_object_uri"]
+    assert metadata["primary_document_content_hash"] == record["content_hash"]
+    assert b"Detailed results page" in open(record["raw_object_uri"], "rb").read()
+
+
 def test_company_ir_adapter_requires_issuers_before_fetch(tmp_path) -> None:
     adapter = CompanyIrAdapter(
         _registry().get("company_ir"),
@@ -234,6 +285,43 @@ def test_company_ir_adapter_filters_old_feed_items_for_daily_runs(tmp_path) -> N
     assert [record["title"] for record in batch.records] == [
         "Apple announces product update"
     ]
+
+
+def test_company_ir_adapter_warns_when_feed_items_are_filtered_out(tmp_path) -> None:
+    adapter = CompanyIrAdapter(
+        _registry().get("company_ir"),
+        raw_dir=tmp_path / "raw",
+        options={
+            "published_after": datetime(2026, 7, 1, tzinfo=timezone.utc),
+            "issuers": [
+                {
+                    "ticker": "AAPL",
+                    "company_name": "Apple Inc.",
+                    "feeds": [
+                        {
+                            "url": "https://www.apple.com/newsroom/rss-feed.rss",
+                            "source_type": "company_newsroom",
+                        }
+                    ],
+                }
+            ],
+        },
+        fetch_bytes=lambda url, headers, timeout: RSS_FEED,
+    )
+
+    batch = adapter.fetch()
+
+    assert batch.ok is True
+    assert batch.records == ()
+    assert batch.warnings
+    warning = batch.warnings[0]
+    assert warning.code == "feed_no_records"
+    assert warning.retryable is False
+    assert warning.details["ticker"] == "AAPL"
+    assert warning.details["raw_item_count"] == 2
+    assert warning.details["filtered_by_published_after_count"] == 2
+    assert warning.details["records_written"] == 0
+    assert warning.details["latest_item_published_at"] == "2026-06-30T13:00:00Z"
 
 
 def test_company_ir_adapter_continues_after_one_feed_failure(tmp_path) -> None:

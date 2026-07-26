@@ -199,6 +199,84 @@ def test_run_manifest_writer_persists_source_warnings(tmp_path) -> None:
     assert payload["sources"][0]["warnings"][0]["details"] == {"ticker": "MSFT"}
 
 
+def test_run_manifest_writer_persists_source_health_summary(tmp_path) -> None:
+    manifest = RunManifest(
+        run_id="run_20260627T080000Z",
+        started_at=_ts(8, 0),
+        finished_at=_ts(8, 2),
+        sources=(
+            RunSourceResult(
+                source_id="sec_edgar",
+                adapter="sec_edgar",
+                output_kind=OutputKind.DOCUMENT,
+                status=RunSourceStatus.SUCCESS,
+                records_seen=0,
+                records_written=0,
+                skipped_reason="no_records",
+            ),
+            RunSourceResult(
+                source_id="tavily",
+                adapter="tavily_search",
+                output_kind=OutputKind.SEARCH_LEAD,
+                status=RunSourceStatus.FAILED,
+                records_seen=0,
+                records_written=0,
+                error=AdapterError(
+                    code="missing_api_key",
+                    message="missing key",
+                    retryable=False,
+                ),
+                skipped_reason="batch_failed",
+            ),
+            RunSourceResult.skipped(
+                source_id="brave_search",
+                adapter="brave_search",
+                output_kind=OutputKind.SEARCH_LEAD,
+                skipped_reason="adapter_not_implemented",
+            ),
+        ),
+    )
+
+    manifest_path = RunManifestWriter(tmp_path).write(manifest)
+
+    health_path = manifest_path.with_name("source_health.json")
+    payload = json.loads(health_path.read_text(encoding="utf-8"))
+    assert payload["run_id"] == "run_20260627T080000Z"
+    assert payload["totals"] == {
+        "failed": 1,
+        "no_records": 1,
+        "skipped": 1,
+        "success": 1,
+        "warnings": 0,
+    }
+    assert payload["sources"] == [
+        {
+            "error_code": None,
+            "records_written": 0,
+            "skipped_reason": "no_records",
+            "source_id": "sec_edgar",
+            "status": "success",
+            "warning_codes": [],
+        },
+        {
+            "error_code": "missing_api_key",
+            "records_written": 0,
+            "skipped_reason": "batch_failed",
+            "source_id": "tavily",
+            "status": "failed",
+            "warning_codes": [],
+        },
+        {
+            "error_code": None,
+            "records_written": 0,
+            "skipped_reason": "adapter_not_implemented",
+            "source_id": "brave_search",
+            "status": "skipped",
+            "warning_codes": [],
+        },
+    ]
+
+
 def test_run_manifest_requires_timezone_aware_timestamps() -> None:
     with pytest.raises(ValidationError, match="timezone-aware"):
         RunManifest(

@@ -140,6 +140,39 @@ class RunManifest(BaseModel):
         return self
 
 
+def source_health_payload(manifest: RunManifest) -> dict[str, object]:
+    sources = [
+        {
+            "source_id": source.source_id,
+            "status": source.status.value,
+            "records_written": source.records_written,
+            "skipped_reason": source.skipped_reason,
+            "error_code": source.error.code if source.error else None,
+            "warning_codes": [warning.code for warning in source.warnings],
+        }
+        for source in manifest.sources
+    ]
+    return {
+        "run_id": manifest.run_id,
+        "totals": {
+            "failed": sum(
+                source.status is RunSourceStatus.FAILED for source in manifest.sources
+            ),
+            "no_records": sum(
+                source.skipped_reason == "no_records" for source in manifest.sources
+            ),
+            "skipped": sum(
+                source.status is RunSourceStatus.SKIPPED for source in manifest.sources
+            ),
+            "success": sum(
+                source.status is RunSourceStatus.SUCCESS for source in manifest.sources
+            ),
+            "warnings": sum(len(source.warnings) for source in manifest.sources),
+        },
+        "sources": sources,
+    }
+
+
 class RunManifestWriter:
     def __init__(self, runs_dir: str | Path) -> None:
         self.runs_dir = Path(runs_dir)
@@ -153,6 +186,16 @@ class RunManifestWriter:
         payload = manifest.model_dump(mode="json")
         output_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        output_path.with_name("source_health.json").write_text(
+            json.dumps(
+                source_health_payload(manifest),
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
             encoding="utf-8",
         )
         return output_path

@@ -59,7 +59,11 @@ def test_build_request_headers_includes_user_agent() -> None:
     }
 
 
-def test_sec_edgar_adapter_requires_user_agent_before_network_fetch(tmp_path) -> None:
+def test_sec_edgar_adapter_requires_user_agent_before_network_fetch(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.delenv("SEC_USER_AGENT", raising=False)
     registry = SourceRegistry.from_yaml("configs/sources.yaml")
     adapter = SecEdgarAdapter(
         registry.get("sec_edgar"),
@@ -141,6 +145,59 @@ def test_sec_edgar_adapter_fetches_submissions_json_to_raw_store(tmp_path) -> No
             7,
         )
     ]
+
+
+def test_sec_edgar_adapter_throttles_between_sec_requests(tmp_path) -> None:
+    registry = SourceRegistry.from_items(
+        [
+            {
+                "source_id": "sec_edgar",
+                "enabled": True,
+                "adapter": "sec_edgar",
+                "output_kind": "document",
+                "default_source_type": "sec_filing",
+                "allowed_source_types": ["sec_filing"],
+                "source_tier": "regulatory_primary",
+                "source_family_strategy": "issuer",
+                "requires_api_key": False,
+                "rate_limit_per_second": 4,
+                "license_notes": "test source",
+            }
+        ]
+    )
+    seen_urls: list[str] = []
+    sleeps: list[float] = []
+
+    def fake_fetch(url: str, headers: dict[str, str], timeout: float) -> bytes:
+        seen_urls.append(url)
+        return json.dumps(
+            {
+                "cik": "0000000000",
+                "name": "Test Co.",
+                "tickers": ["TEST"],
+                "filings": {"recent": {"accessionNumber": []}},
+            }
+        ).encode("utf-8")
+
+    adapter = SecEdgarAdapter(
+        registry.get("sec_edgar"),
+        raw_dir=tmp_path / "raw",
+        options={
+            "ciks": ["1", "2"],
+            "user_agent": "super-bear-dev contact@example.com",
+        },
+        fetch_bytes=fake_fetch,
+        sleep=sleeps.append,
+    )
+
+    batch = adapter.fetch()
+
+    assert batch.ok is True
+    assert seen_urls == [
+        "https://data.sec.gov/submissions/CIK0000000001.json",
+        "https://data.sec.gov/submissions/CIK0000000002.json",
+    ]
+    assert sleeps == [0.25]
 
 
 def test_sec_edgar_adapter_can_fetch_primary_document_html(tmp_path) -> None:
@@ -226,6 +283,82 @@ def test_sec_edgar_adapter_can_fetch_primary_document_html(tmp_path) -> None:
         "https://www.sec.gov/Archives/edgar/data/320193/"
         "000032019326000010/aapl-20260328.htm",
     ]
+
+
+def test_sec_edgar_adapter_filters_recent_filings_before_body_fetch(tmp_path) -> None:
+    registry = SourceRegistry.from_yaml("configs/sources.yaml")
+
+    def fake_fetch(url: str, headers: dict[str, str], timeout: float) -> bytes:
+        if url == "https://data.sec.gov/submissions/CIK0000320193.json":
+            return json.dumps(
+                {
+                    "cik": "0000320193",
+                    "name": "Apple Inc.",
+                    "tickers": ["AAPL"],
+                    "filings": {
+                        "recent": {
+                            "accessionNumber": [
+                                "0000320193-26-000010",
+                                "0000320193-26-000011",
+                                "0000320193-26-000012",
+                            ],
+                            "filingDate": [
+                                "2026-06-29",
+                                "2026-06-28",
+                                "2026-05-01",
+                            ],
+                            "reportDate": [
+                                "2026-06-29",
+                                "2026-06-28",
+                                "2026-03-28",
+                            ],
+                            "acceptanceDateTime": [
+                                "2026-06-29T20:00:00.000Z",
+                                "2026-06-28T20:00:00.000Z",
+                                "2026-05-01T22:03:00.000Z",
+                            ],
+                            "form": ["8-K", "8-K", "10-Q"],
+                            "primaryDocument": [
+                                "aapl-20260629.htm",
+                                "aapl-20260628.htm",
+                                "aapl-20260328.htm",
+                            ],
+                            "primaryDocDescription": ["8-K", "8-K", "10-Q"],
+                            "items": ["2.02", "5.02", ""],
+                            "size": [123, 456, 789],
+                            "isXBRL": [0, 0, 1],
+                            "isInlineXBRL": [1, 1, 1],
+                        }
+                    },
+                }
+            ).encode("utf-8")
+        if url.endswith("/aapl-20260629.htm"):
+            return b"<html><body><p>Revenue increased.</p></body></html>"
+        raise AssertionError(f"unexpected URL: {url}")
+
+    adapter = SecEdgarAdapter(
+        registry.get("sec_edgar"),
+        raw_dir=tmp_path / "raw",
+        options={
+            "ciks": ["320193"],
+            "user_agent": "super-bear-dev contact@example.com",
+            "include_forms": ["8-K"],
+            "published_after": datetime(2026, 6, 29, tzinfo=timezone.utc),
+            "max_filings_per_cik": 1,
+            "fetch_primary_documents": True,
+            "primary_document_limit": 1,
+        },
+        fetch_bytes=fake_fetch,
+    )
+
+    batch = adapter.fetch()
+
+    assert batch.ok is True
+    assert len(batch.records) == 1
+    assert batch.records[0]["metadata"]["accession_number"] == ("0000320193-26-000010")
+    assert batch.records[0]["metadata"]["primary_document_raw_uri"].endswith(
+        "aapl-20260629.htm"
+    )
 
 
 def test_sec_edgar_adapter_records_http_errors(tmp_path) -> None:

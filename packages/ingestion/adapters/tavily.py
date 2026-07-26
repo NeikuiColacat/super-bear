@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
@@ -33,6 +34,8 @@ class TavilyFetchOptions(BaseModel):
     max_results: int = Field(default=5, ge=1, le=20)
     search_depth: str = Field(default="basic", pattern=r"^(basic|advanced)$")
     include_raw_content: bool = False
+    include_domains: tuple[str, ...] = ()
+    exclude_domains: tuple[str, ...] = ()
     request_timeout_seconds: float = Field(default=20.0, gt=0)
 
 
@@ -84,12 +87,7 @@ class TavilySearchAdapter(BaseSourceAdapter):
                 payload = self._post_json(
                     endpoint,
                     {"Authorization": f"Bearer {api_key}"},
-                    {
-                        "query": query,
-                        "max_results": self.fetch_options.max_results,
-                        "search_depth": self.fetch_options.search_depth,
-                        "include_raw_content": self.fetch_options.include_raw_content,
-                    },
+                    self._payload(query),
                     self.fetch_options.request_timeout_seconds,
                 )
             except HttpAdapterError as exc:
@@ -103,7 +101,10 @@ class TavilySearchAdapter(BaseSourceAdapter):
                 raw_bytes,
             )
             raw_uris.append(raw_result.raw_uri)
-            for rank, item in enumerate(_items(payload), start=1):
+            items = [
+                item for item in _items(payload) if self._is_allowed_item_url(item)
+            ]
+            for rank, item in enumerate(items, start=1):
                 lead = _lead_from_item(
                     source_id=self.source.source_id,
                     query=query,
@@ -151,6 +152,32 @@ class TavilySearchAdapter(BaseSourceAdapter):
             error=AdapterError(code=code, message=message, retryable=retryable),
         )
 
+    def _payload(self, query: str) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "query": query,
+            "max_results": self.fetch_options.max_results,
+            "search_depth": self.fetch_options.search_depth,
+            "include_raw_content": self.fetch_options.include_raw_content,
+        }
+        if self.fetch_options.include_domains:
+            payload["include_domains"] = list(self.fetch_options.include_domains)
+        if self.fetch_options.exclude_domains:
+            payload["exclude_domains"] = list(self.fetch_options.exclude_domains)
+        return payload
+
+    def _is_allowed_item_url(self, item: Mapping[str, Any]) -> bool:
+        url = str(item.get("url") or "").strip()
+        if not url:
+            return False
+        host = _normalized_host(url)
+        if not host:
+            return False
+        include_domains = self.fetch_options.include_domains
+        if include_domains and not _host_matches_any(host, include_domains):
+            return False
+        exclude_domains = self.fetch_options.exclude_domains
+        return not (exclude_domains and _host_matches_any(host, exclude_domains))
+
 
 def _post_json_payload(
     url: str,
@@ -170,6 +197,21 @@ def _post_json_payload(
 def _items(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     value = payload.get("results", [])
     return [item for item in value if isinstance(item, Mapping)]
+
+
+def _normalized_host(url: str) -> str:
+    return urlparse(url).netloc.lower().removeprefix("www.")
+
+
+def _host_matches_any(host: str, domains: tuple[str, ...]) -> bool:
+    normalized_domains = tuple(
+        domain.strip().lower().removeprefix("www.")
+        for domain in domains
+        if domain.strip()
+    )
+    return any(
+        host == domain or host.endswith(f".{domain}") for domain in normalized_domains
+    )
 
 
 def _lead_from_item(

@@ -344,7 +344,12 @@ def test_runner_collects_cli_previews_from_current_batches(tmp_path) -> None:
     ]
 
 
-def test_runner_cli_uses_yaml_config_and_prints_summary(tmp_path, capsys) -> None:
+def test_runner_cli_uses_yaml_config_and_prints_summary(
+    tmp_path,
+    capsys,
+    monkeypatch,
+) -> None:
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
     config_path = tmp_path / "ingestion_run.yaml"
     config_path.write_text(
         f"""
