@@ -73,15 +73,21 @@ def validate_investigator_result(
         for claim in request.event_pack.get("claims", [])
         if isinstance(claim, dict) and claim.get("claim_id")
     }
-    span_ids = {
-        str(span.get("span_id"))
+    span_claim_ids = {
+        str(span.get("span_id")): str(span.get("claim_id"))
         for span in request.event_pack.get("evidence_spans", [])
         if isinstance(span, dict) and span.get("span_id")
     }
     for citation in result.citations:
         if citation.claim_id not in claim_ids:
             errors.append(f"citation_claim_missing:{citation.claim_id}")
-        if citation.evidence_span_id not in span_ids:
+        span_claim_id = span_claim_ids.get(citation.evidence_span_id)
+        if span_claim_id is None:
             errors.append(f"citation_evidence_span_missing:{citation.evidence_span_id}")
+        elif span_claim_id != citation.claim_id:
+            errors.append(
+                "citation_claim_evidence_mismatch:"
+                f"{citation.claim_id}:{citation.evidence_span_id}"
+            )
 
     return HarnessValidationResult(ok=not errors, errors=tuple(errors))

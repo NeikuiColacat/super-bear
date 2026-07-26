@@ -32,6 +32,12 @@ def build_event_cards(
             for claim_id in event.claim_ids
             for span in spans_by_claim.get(claim_id, [])
         ]
+        scoped_span_ids = event.metadata.get("evidence_span_ids")
+        if isinstance(scoped_span_ids, list):
+            allowed_span_ids = {str(span_id) for span_id in scoped_span_ids}
+            event_spans = [
+                span for span in event_spans if span.span_id in allowed_span_ids
+            ]
         if not event_claims or not event_spans:
             continue
 

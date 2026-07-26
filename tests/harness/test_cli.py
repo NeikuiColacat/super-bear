@@ -19,7 +19,12 @@ def test_harness_cli_validates_fake_pi_result() -> None:
             "event_pack": {
                 "event": {"event_id": "event:issuer:test"},
                 "claims": [{"claim_id": "sec:apple:10q:claim:000000"}],
-                "evidence_spans": [{"span_id": "sec:apple:10q:span:000000"}],
+                "evidence_spans": [
+                    {
+                        "span_id": "sec:apple:10q:span:000000",
+                        "claim_id": "sec:apple:10q:claim:000000",
+                    }
+                ],
                 "chunks": [],
                 "open_questions": [],
             },
@@ -79,7 +84,11 @@ def test_harness_cli_validates_fenced_pi_result_text() -> None:
                         "span_id": (
                             "sec:0000320193:0000320193-26-000013:"
                             "aapl-20260328.htm:span:000000"
-                        )
+                        ),
+                        "claim_id": (
+                            "sec:0000320193:0000320193-26-000013:"
+                            "aapl-20260328.htm:claim:000000"
+                        ),
                     }
                 ],
             },

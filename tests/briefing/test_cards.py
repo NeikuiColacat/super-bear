@@ -81,6 +81,25 @@ def test_build_event_cards_keeps_factual_text_traceable() -> None:
     assert card.source_summary == ("regulatory_primary:sec_filing",)
 
 
+def test_build_event_cards_uses_only_event_scoped_evidence_spans() -> None:
+    claim = _claim()
+    first_span = _span(claim)
+    second_span = first_span.model_copy(update={"span_id": "sec:apple:10q:span:000001"})
+    event = _event(claim).model_copy(
+        update={"metadata": {"evidence_span_ids": [first_span.span_id]}}
+    )
+
+    cards = build_event_cards(
+        events=(event,),
+        claims=(claim,),
+        evidence_spans=(first_span, second_span),
+        created_at=_ts(),
+    )
+
+    assert len(cards) == 1
+    assert cards[0].key_evidence_span_ids == (first_span.span_id,)
+
+
 def test_render_daily_brief_includes_claim_and_evidence_ids() -> None:
     claim = _claim()
     card = build_event_cards(

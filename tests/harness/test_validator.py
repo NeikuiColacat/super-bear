@@ -25,7 +25,12 @@ def _request() -> InvestigatorRequest:
         event_pack={
             "event": {"event_id": "event:issuer:test"},
             "claims": [{"claim_id": "sec:apple:10q:claim:000000"}],
-            "evidence_spans": [{"span_id": "sec:apple:10q:span:000000"}],
+            "evidence_spans": [
+                {
+                    "span_id": "sec:apple:10q:span:000000",
+                    "claim_id": "sec:apple:10q:claim:000000",
+                }
+            ],
             "chunks": [],
             "open_questions": [],
         },
@@ -85,6 +90,47 @@ def test_validator_rejects_stop_without_citations_for_sufficient_result() -> Non
 
     assert validation.ok is False
     assert validation.errors == ("sufficient_result_requires_citation",)
+
+
+def test_validator_rejects_citation_when_span_belongs_to_another_claim() -> None:
+    request = _request().model_copy(
+        update={
+            "event_pack": {
+                "event": {"event_id": "event:issuer:test"},
+                "claims": [
+                    {"claim_id": "sec:apple:10q:claim:000000"},
+                    {"claim_id": "sec:apple:10q:claim:000001"},
+                ],
+                "evidence_spans": [
+                    {
+                        "span_id": "sec:apple:10q:span:000001",
+                        "claim_id": "sec:apple:10q:claim:000001",
+                    }
+                ],
+                "chunks": [],
+                "open_questions": [],
+            }
+        }
+    )
+    result = InvestigatorResult(
+        schema_version="investigator_result.v0",
+        investigator_run_id="investigator_run_20260628T080100Z",
+        status=ResultStatus.STOP,
+        evidence_status=EvidenceStatus.INSUFFICIENT,
+        citations=[
+            {
+                "claim_id": "sec:apple:10q:claim:000000",
+                "evidence_span_id": "sec:apple:10q:span:000001",
+            }
+        ],
+    )
+
+    validation = validate_investigator_result(request, result)
+
+    assert validation.ok is False
+    assert validation.errors == (
+        "citation_claim_evidence_mismatch:sec:apple:10q:claim:000000:sec:apple:10q:span:000001",
+    )
 
 
 def test_validator_rejects_abstain_without_reason() -> None:

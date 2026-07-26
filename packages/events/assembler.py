@@ -46,11 +46,12 @@ def assemble_events(
         if not claim_ids or not spans:
             continue
         related_doc_ids = tuple(sorted({span.doc_id for span in spans}))
+        evidence_span_ids = sorted({span.span_id for span in spans})
         event_type = _event_type(spans[0])
         source_family_id = spans[0].source_family_id
         event = Event(
             event_id=_event_id(assembly_key, claim_ids),
-            canonical_title=_canonical_title(claims_by_id, claim_ids),
+            canonical_title=_canonical_title(claims_by_id, claim_ids, spans),
             event_type=event_type,
             entities=(),
             event_time=min(span.published_at for span in spans).astimezone(
@@ -65,6 +66,7 @@ def assemble_events(
                 "assembly_version": ASSEMBLY_VERSION,
                 "merge_reason": "same_source_family_event_type_form_and_day",
                 "source_family_id": source_family_id,
+                "evidence_span_ids": evidence_span_ids,
             },
         )
         check = check_event_evidence(
@@ -119,8 +121,22 @@ def _event_id(assembly_key: str, claim_ids: tuple[str, ...]) -> str:
 def _canonical_title(
     claims_by_id: dict[str, Claim],
     claim_ids: tuple[str, ...],
+    spans: list[EvidenceSpan],
 ) -> str:
+    if spans and _event_type(spans[0]) is EventType.SEC_FILING:
+        document_titles = {
+            title
+            for span in spans
+            if (title := _metadata_text(span.metadata, "document_title"))
+        }
+        if len(document_titles) == 1:
+            return document_titles.pop()
     return claims_by_id[claim_ids[0]].claim_text
+
+
+def _metadata_text(metadata: dict[str, object], key: str) -> str:
+    value = metadata.get(key)
+    return value if isinstance(value, str) else ""
 
 
 def _slug(value: str) -> str:

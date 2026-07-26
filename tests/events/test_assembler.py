@@ -38,6 +38,7 @@ def _span(
     source_family_id: str = "issuer:0000320193",
     published_at: datetime | None = None,
     form: str = "10-Q",
+    document_title: str | None = None,
 ) -> EvidenceSpan:
     claim_id = f"{doc_id}:claim:{claim_index if claim_index is not None else index:06d}"
     return EvidenceSpan(
@@ -58,6 +59,7 @@ def _span(
         metadata={
             "form": form,
             "content_hash": make_content_hash(text),
+            **({"document_title": document_title} if document_title else {}),
         },
     )
 
@@ -84,6 +86,55 @@ def test_assembler_groups_claims_from_same_document_into_one_event() -> None:
     )
     assert event.evidence_status is EvidenceStatus.SUFFICIENT
     assert event.assembly_key == "issuer:0000320193|sec_filing|10-Q|20260628"
+
+
+def test_assembler_prefers_document_title_for_sec_filing_event_title() -> None:
+    claim = _claim(
+        0,
+        "Note 2 - Revenue The following table shows disaggregated net sales "
+        "for the three- and six-month periods ended March 28, 2026.",
+    )
+    evidence_spans = (
+        _span(
+            0,
+            claim.claim_text,
+            document_title="Apple Inc. 10-Q filed 2026-05-01",
+        ),
+    )
+
+    events = assemble_events(claims=(claim,), evidence_spans=evidence_spans)
+
+    assert events[0].canonical_title == "Apple Inc. 10-Q filed 2026-05-01"
+
+
+def test_assembler_avoids_ambiguous_sec_titles_when_documents_are_merged() -> None:
+    claims = (
+        _claim(0, "First filing fact.", doc_id="sec:apple:first"),
+        _claim(0, "Second filing fact.", doc_id="sec:apple:second"),
+    )
+    evidence_spans = (
+        _span(
+            0,
+            claims[0].claim_text,
+            doc_id="sec:apple:first",
+            document_title="Apple first filing",
+        ),
+        _span(
+            0,
+            claims[1].claim_text,
+            doc_id="sec:apple:second",
+            document_title="Apple second filing",
+        ),
+    )
+
+    forward = assemble_events(claims=claims, evidence_spans=evidence_spans)
+    reversed_events = assemble_events(
+        claims=tuple(reversed(claims)),
+        evidence_spans=tuple(reversed(evidence_spans)),
+    )
+
+    assert forward[0].canonical_title == "First filing fact."
+    assert reversed_events[0].canonical_title == forward[0].canonical_title
 
 
 def test_assembler_keeps_different_issuers_separate() -> None:
@@ -170,3 +221,5 @@ def test_assembler_assigns_multiple_spans_for_one_claim_to_their_own_buckets() -
         "issuer:0000320193|sec_filing|8-K|20260629",
     ]
     assert all(event.claim_ids == (claim.claim_id,) for event in events)
+    assert events[0].metadata["evidence_span_ids"] == ["sec:apple:10q:span:000000"]
+    assert events[1].metadata["evidence_span_ids"] == ["sec:apple:10q:span:000001"]

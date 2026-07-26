@@ -26,8 +26,6 @@ _MATERIAL_KEYWORDS = (
     "merger",
     "net sales",
     "revenue",
-    "risk",
-    "sales",
 )
 
 
@@ -108,7 +106,29 @@ def _is_decimal_point(text: str, index: int) -> bool:
 
 def _looks_material(sentence: str) -> bool:
     text = sentence.lower()
+    if _looks_sec_heading_noise(text):
+        return False
     return any(keyword in text for keyword in _MATERIAL_KEYWORDS)
+
+
+def _looks_sec_heading_noise(text: str) -> bool:
+    return (
+        text.startswith("risk factors")
+        or text.startswith("quantitative and qualitative disclosures")
+        or text.startswith("unregistered sales")
+        or text.startswith("condensed consolidated")
+        or "see accompanying notes to condensed consolidated financial statements"
+        in text
+        or _looks_numeric_table_row(text)
+    )
+
+
+def _looks_numeric_table_row(text: str) -> bool:
+    tokens = text.split()
+    if len(tokens) < 8:
+        return False
+    numeric_tokens = sum(any(char.isdigit() for char in token) for token in tokens)
+    return numeric_tokens >= 8 and numeric_tokens / len(tokens) >= 0.35
 
 
 def _metadata_required(chunk: DocumentChunk, key: str) -> str:
@@ -120,9 +140,10 @@ def _metadata_required(chunk: DocumentChunk, key: str) -> str:
 
 def _candidate_metadata(chunk: DocumentChunk) -> dict[str, str]:
     metadata = {"extractor": "rule_stub_v0.1"}
-    form = chunk.metadata.get("form")
-    if isinstance(form, str) and form:
-        metadata["form"] = form
+    for key in ("form", "document_title"):
+        value = chunk.metadata.get(key)
+        if isinstance(value, str) and value:
+            metadata[key] = value
     return metadata
 
 
