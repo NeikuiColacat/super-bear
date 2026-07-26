@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>存储股周一事件卡片</title>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --paper: #fffaf0;
+      --paper-strong: #fbf0dc;
+      --ink: #2f261f;
+      --muted: #766b5f;
+      --line: #dfd2bf;
+      --accent: #9b5c2f;
+      --accent-soft: #ead8c1;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Inter", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.7;
+    }
+
+    main {
+      width: min(1080px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 42px 0 56px;
+    }
+
+    h1, h2, h3 {
+      font-family: Georgia, "Times New Roman", "Songti SC", serif;
+      font-weight: 500;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h1 { margin: 0 0 10px; font-size: clamp(32px, 5vw, 56px); }
+    h2 { margin: 34px 0 14px; font-size: 24px; }
+    h3 { margin: 12px 0 8px; font-size: 23px; }
+    h4 { margin: 20px 0 8px; font-size: 15px; color: var(--muted); }
+
+    .hero {
+      padding: 30px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: linear-gradient(180deg, #fff8eb, #f8ecd9);
+    }
+
+    .note { max-width: 760px; color: var(--muted); margin: 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      background: var(--paper-strong);
+      font-weight: 600;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      margin: 18px 0;
+      box-shadow: 0 14px 34px rgba(80, 53, 25, 0.07);
+    }
+
+    .meta { color: var(--muted); font-size: 14px; }
+
+    .pill {
+      display: inline-block;
+      background: var(--accent-soft);
+      color: #5e351e;
+      border: 1px solid #d9bd9d;
+      border-radius: 999px;
+      padding: 3px 9px;
+      margin-right: 6px;
+      font-size: 13px;
+    }
+
+    code {
+      background: #f2e4cf;
+      color: #65401f;
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 12px;
+    }
+
+    blockquote {
+      margin: 12px 0;
+      padding: 12px 14px;
+      border-left: 4px solid var(--accent);
+      background: #fbf3e6;
+      color: #3f332a;
+    }
+
+    a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+    ul { padding-left: 22px; }
+    strong { font-weight: 650; }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <h1>存储股周一事件卡片</h1>
+      <p class="note">目标日期：2026-06-29。生成时间：2026-07-01 10:10 UTC。本文只做信息优先级整理，不构成投资建议。</p>
+    </section>
+
+    <h2>行情变动</h2>
+    <table>
+      <thead>
+        <tr><th>股票</th><th>收盘到收盘涨跌幅</th><th>收盘价</th><th>成交量</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>WDC</td><td>+11.16%</td><td>651.88</td><td>11,268,900</td></tr>
+        <tr><td>STX</td><td>+7.63%</td><td>968.53</td><td>5,391,300</td></tr>
+        <tr><td>SNDK</td><td>-1.93%</td><td>2050.39</td><td>11,251,000</td></tr>
+        <tr><td>NTAP</td><td>+1.71%</td><td>155.06</td><td>1,742,700</td></tr>
+        <tr><td>MU</td><td>+1.14%</td><td>1145.28</td><td>60,694,100</td></tr>
+      </tbody>
+    </table>
+
+    <h2>候选事件</h2>
+
+    <section class="card">
+      <div><span class="pill">WDC</span><span class="pill">STX</span></div>
+      <h3>WDC 与 STX 获分析师上调目标价及正面评论</h3>
+      <p class="meta">类型：分析师观点 · 排名分：15.56 · 行情：WDC +11.16%，STX +7.63%</p>
+      <p><strong>发生了什么：</strong>Cantor Fitzgerald 将 Western Digital 目标价从 660 美元上调至 900 美元；将 Seagate 目标价从 1,000 美元上调至 1,300 美元。</p>
+      <p><strong>为什么可能重要：</strong>对 WDC、STX 来说，分析师预测或目标价变化可被视为同日投资者关注度的候选驱动因素，但不能证明它们产生了当天股价变动。</p>
+      <p><strong>不确定性：</strong>证据来自搜索线索和短摘要。该卡片是优先调查候选，不是已经验证的因果结论。</p>
+
+      <h4>Claims</h4>
+      <ul>
+        <li>Cantor Fitzgerald 将 Western Digital 目标价从 660 美元上调至 900 美元。<br><code>claim:storage-monday:001</code></li>
+        <li>Cantor Fitzgerald 将 Seagate 目标价从 1,000 美元上调至 1,300 美元。<br><code>claim:storage-monday:002</code></li>
+      </ul>
+
+      <h4>Evidence Leads</h4>
+      <blockquote>
+        Western Digital price target raised to $900 from $660 at Cantor Fitzgerald
+        <div class="meta"><code>evidence:storage-monday:001</code> · <code>lead:01:03</code> · 角色：search_lead_only · <a href="https://www.cnbc.com/quotes/WDC">WDC: Western Digital Corp - Stock Price, Quote and News - CNBC</a></div>
+      </blockquote>
+      <blockquote>
+        Seagate price target raised to $1,300 from $1,000 at Cantor Fitzgerald
+        <div class="meta"><code>evidence:storage-monday:002</code> · <code>lead:03:03</code> · 角色：search_lead_only · <a href="https://www.cnbc.com/quotes/STX">Seagate Technology Holdings PLC STX:NASDAQ - CNBC</a></div>
+      </blockquote>
+    </section>
+
+    <section class="card">
+      <div><span class="pill">SNDK</span></div>
+      <h3>SanDisk 因供需错配叙事获得预测上调</h3>
+      <p class="meta">类型：分析师观点 · 排名分：4.63 · 行情：SNDK -1.93%</p>
+      <p><strong>发生了什么：</strong>两家华尔街机构上调了对 SanDisk 的预测，理由是内存市场供需错配仍可能让公司受益。</p>
+      <p><strong>为什么可能重要：</strong>对 SNDK 来说，分析师预测变化可被视为同日投资者关注度的候选驱动因素，但不能证明它产生了当天股价变动。</p>
+      <p><strong>不确定性：</strong>证据来自搜索线索和短摘要。该卡片是优先调查候选，不是已经验证的因果结论。</p>
+
+      <h4>Claims</h4>
+      <ul>
+        <li>两家华尔街机构上调了对 SanDisk 的预测，并提到供需错配。<br><code>claim:storage-monday:005</code></li>
+      </ul>
+
+      <h4>Evidence Leads</h4>
+      <blockquote>
+        Sandisk stock was back on the rise Monday after two Wall Street firms hiked their forecasts for the memory supplier
+        <div class="meta"><code>evidence:storage-monday:005</code> · <code>lead:06:04</code> · 角色：search_lead_only · <a href="https://www.barrons.com/articles/sandisk-stock-ai-memory-supply-319c35c8">Sandisk Stock Jumps-Again. Don't Worry About New Memory ...</a></div>
+      </blockquote>
+    </section>
+
+    <section class="card">
+      <div><span class="pill">MU</span></div>
+      <h3>Micron 与 AI 开发商 Anthropic 签署内存供应协议</h3>
+      <p class="meta">类型：其他 · 排名分：4.24 · 行情：MU +1.14%</p>
+      <p><strong>发生了什么：</strong>Micron 宣布与 AI 开发商 Anthropic 签署内存和存储供应协议；搜索线索将其描述为与 Anthropic 多年增长相关。</p>
+      <p><strong>为什么可能重要：</strong>对 MU 来说，这一事项可被视为围绕内存和存储需求的同日投资者关注候选驱动因素。仅凭搜索线索，尚不能确认财务影响或股价因果关系。</p>
+      <p><strong>不确定性：</strong>证据来自搜索线索和短摘要。该卡片是优先调查候选，不是已经验证的因果结论。</p>
+
+      <h4>Claims</h4>
+      <ul>
+        <li>Micron 与 AI 开发商 Anthropic 签署了内存和存储供应协议。<br><code>claim:storage-monday:004</code></li>
+      </ul>
+
+      <h4>Evidence Leads</h4>
+      <blockquote>
+        Micron stock jumped after the memory chipmaker announced it signed a memory and storage supply deal with AI developer Anthropic
+        <div class="meta"><code>evidence:storage-monday:004</code> · <code>lead:07:01</code> · 角色：search_lead_only · <a href="https://finance.yahoo.com/markets/stocks/article/micron-stock-surges-to-new-high-amid-ai-memory-trade-boom-anthropic-deal-125205263.html">Micron stock surges to new high amid AI memory trade boom ...</a></div>
+      </blockquote>
+    </section>
+  </main>
+</body>
+</html>

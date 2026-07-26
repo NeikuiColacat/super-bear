@@ -135,3 +135,15 @@ Average	0.309	0.344	+0.035
 | Search-Enabled Graph |                 64.4% |
 | Near-Resolution      |                 74.7% |
 | Real-Time            |                 88.8% |
+
+
+
+
+| 阅读顺序 | Benchmark / 工作        | 发表/发布状态                              | 为什么优先                                                                                                                                                                                                               |
+| ---: | --------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|    1 | **WorldReasoner**     | 2026 arXiv                           | 最贴近我们要做的“事件归因 + 未来预测 + time-valid evidence”。它给定 resolved forecasting question 和模拟 forecast date，只允许使用该日期前的证据，并同时评价预测概率、引用证据和可选 causal event graph。数据包含 345 个 resolved tasks、14,141 篇文章、8,087 个抽取事件。                 |
+|    2 | **LiveResearchBench** | 2025 arXiv                           | 最贴近“Deep Research Agent 生成带 citation 的长报告”。它有 100 个专家构造任务，覆盖 daily life、enterprise、academia，构建投入超过 1,500 小时，并用 DeepEval 评价 coverage、presentation、citation accuracy、citation association、consistency、analysis depth。 |
+|    3 | **Mind2Web 2**        | 2025 arXiv                           | 最贴近“agentic search + source attribution”。它包含 130 个长程真实网页搜索任务，要求实时浏览、信息综合和 source attribution，并提出 Agent-as-a-Judge 评价框架。                                                                                             |
+|    4 | **AVeriTeC**          | 2023 arXiv / fact-checking benchmark | 最贴近“开放网页 claim verification”。它有 4,568 个真实世界 claims，来自 50 个 fact-checking 组织，用 QA evidence 和 textual justification 组合判断 verdict，并专门处理 temporal leakage。                                                              |
+|    5 | **GaRAGe**            | 2025 arXiv，Amazon Science 作者         | 最适合我们做“evidence sufficiency / citation grounding”子模块。它包含 2,366 个问题和 35K+ 人工标注 grounding passages，评价模型是否只使用相关证据、是否在证据不足时 deflect。                                                                                    |
+|    6 | **MAVEN-ERE**         | 事件关系抽取经典强 benchmark                  | 最适合支撑“事件图谱 / 事件归因链”。它统一标注 event coreference、temporal、causal、subevent relations，规模包括 103,193 个事件共指链、1,216,217 个时间关系、57,992 个因果关系和 15,841 个子事件关系，并公开数据和代码。                                                            |

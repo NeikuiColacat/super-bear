@@ -137,3 +137,22 @@ flowchart TD
 - Search Wisely 论文页（EMNLP 2025 主会） citeturn45view0turn45view1
 - DAS 论文页（WWW 2026） citeturn47view0
 - DAS 论文中给出的 GitHub 链接当前访问返回 404，可视为“开源链接失效”信号 citeturn47view0turn50view0
+
+
+| 通用学术任务                    | 考什么          | 代表方向                 |
+| ------------------------- | ------------ | -------------------- |
+| Browsing Agent            | 找到难找事实       | BrowseComp           |
+| Deep Search Agent         | 完整搜索、去重、停止搜索 | DeepSearchQA         |
+| Deep Research Agent       | 多源研究报告生成     | DeepResearch Bench   |
+| Agentic RAG               | 动态检索决策       | Agentic RAG / A-RAG  |
+| Multimodal Evidence Agent | 图文证据绑定与引用    | MMDeepResearch-Bench |
+
+
+| 金融学术任务                                    | 考什么                 | 代表方向                                                 |
+| ----------------------------------------- | ------------------- | ---------------------------------------------------- |
+| Financial Search-and-Reasoning            | 金融开放域搜索、时间敏感事实、复杂调查 | FinSearchComp                                        |
+| SEC Filing / Financial Document Reasoning | SEC 披露理解、跨公司、跨时期追踪  | Fin-RATE                                             |
+| Financial Deep Research Report            | 专业金融研究报告质量          | FinDeepResearch / Deep FinResearch Bench / ICBCBench |
+| Financial Event Attribution               | 事件识别、证据链、市场反应归因     | 目前仍是缺口                                               |
+| Financial Trading Agent                   | 交易决策、执行、回测、适应市场反馈   | Agentic Trading                                      |
+| Risk-aware Financial Agent Evaluation     | 幻觉、时间错配、对抗风险、系统审计   | Safety-aware eval                                    |
